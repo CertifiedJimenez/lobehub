@@ -5,14 +5,16 @@ import { getMcpToolVisibility, isMcpToolVisibleTo } from '@lobechat/const/mcpApp
 import { toRecord } from '@lobechat/utils/object';
 import {
   Client,
+  type FetchLike,
   InsufficientScopeError,
+  type Progress,
   SdkError,
   SdkErrorCode,
   SdkHttpError,
   StreamableHTTPClientTransport,
+  type Transport,
   UnauthorizedError,
 } from '@modelcontextprotocol/client';
-import { type Progress, type Transport } from '@modelcontextprotocol/client';
 import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import debug from 'debug';
 
@@ -172,6 +174,11 @@ async function preCheckStdioCommand(params: {
 
 export interface MCPClientOptions {
   /**
+   * The fetch an HTTP transport sends its requests with, such as an SSRF-safe
+   * one for an endpoint nobody vouched for. Unset: the global fetch.
+   */
+  fetch?: FetchLike;
+  /**
    * Advertise MCP Apps (SEP-1865) during `initialize`, so servers expose their
    * interactive views. Off: the client announces itself as it did before MCP
    * Apps, and servers answer as they would any other client.
@@ -195,7 +202,7 @@ export class MCPClient {
   /** When the last `getToolUiResourceUri` listing failed, while no listing has succeeded */
   private uiResourceListFailedAt?: number;
 
-  constructor(params: MCPClientParams, { mcpApps = false }: MCPClientOptions = {}) {
+  constructor(params: MCPClientParams, { fetch, mcpApps = false }: MCPClientOptions = {}) {
     this.params = params;
     this.mcp = new Client(
       { name: 'lobehub-mcp-client', version: '1.0.0' },
@@ -251,6 +258,7 @@ export class MCPClient {
 
         // Create StreamableHTTPClientTransport and pass headers
         this.transport = new StreamableHTTPClientTransport(new URL(params.url), {
+          fetch,
           requestInit: { headers },
         });
 
