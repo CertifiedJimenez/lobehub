@@ -407,37 +407,50 @@ export const connectorRouter = router({
     // enforcing "one connector per identifier per agent" at the app layer (the
     // DB indexes are non-unique so multiple same-identifier rows can coexist
     // across scopes).
-    const existing = await ctx.connectorModel.findScopedByIdentifier(input.identifier, agentId);
+    const row = {
+      ...fields,
+      isEnabled: input.isEnabled ?? true,
+      sourceType: input.sourceType,
+      status: ConnectorStatus.disconnected,
+    };
     // Adding a workspace connector follows the member policy. Re-adding over
     // someone else's row rewrites its server/command while the row stays theirs
     // (their runs would execute it, and they could read the new credentials), so
     // that keeps the creator-or-owner rule.
-    if (existing && existing.userId !== ctx.userId)
-      await assertConnectorCredentialsManageable(ctx, existing);
-    else await assertConnectorMaintainable(ctx, { agentId, userId: existing?.userId });
-    if (existing) {
-      await ctx.connectorModel.update(existing.id, {
-        ...fields,
-        isEnabled: input.isEnabled ?? true,
-        sourceType: input.sourceType,
-        status: ConnectorStatus.disconnected,
-      });
-      // `isNew` lets clients tell a fresh row from an updated pre-existing one —
-      // client-side caches can't answer this reliably (the connector list may
-      // not be fetched yet), and rollback-on-sync-failure must never delete a
-      // connector the user already had.
+    const assertWritable = (existing?: { agentId: string | null; userId: string }) =>
+      existing && existing.userId !== ctx.userId
+        ? assertConnectorCredentialsManageable(ctx, existing)
+        : assertConnectorMaintainable(ctx, { agentId, userId: existing?.userId });
+    // `isNew` lets clients tell a fresh row from an updated pre-existing one —
+    // client-side caches can't answer this reliably (the connector list may
+    // not be fetched yet), and rollback-on-sync-failure must never delete a
+    // connector the user already had.
+    const reAdd = async (existing: { agentId: string | null; id: string; userId: string }) => {
+      await assertWritable(existing);
+      await ctx.connectorModel.update(existing.id, row);
       return { id: existing.id, isNew: false };
-    }
+    };
 
-    const created = await ctx.connectorModel.create({
-      ...fields,
-      agentId: agentId ?? null,
+    const existing = await ctx.connectorModel.findScopedByIdentifier(input.identifier, agentId);
+    if (existing) return reAdd(existing);
+    await assertWritable();
+
+    if (agentId) {
+      const created = await ctx.connectorModel.create({
+        ...row,
+        agentId,
+        identifier: input.identifier,
+      });
+      return { id: created.id, isNew: true };
+    }
+    // A base row is claimed under the identifier lock every base-row writer
+    // takes (an Agent Builder install among them), so concurrent adds create it once.
+    const claim = await ctx.connectorModel.createUnlessIdentifierHeld({
+      ...row,
       identifier: input.identifier,
-      isEnabled: input.isEnabled ?? true,
-      sourceType: input.sourceType,
-      status: ConnectorStatus.disconnected,
     });
-    return { id: created.id, isNew: true };
+    if ('holder' in claim) return reAdd(claim.holder);
+    return { id: claim.created.id, isNew: true };
   }),
 
   /**
@@ -490,15 +503,16 @@ export const connectorRouter = router({
       await assertConnectorCredentialsManageable(ctx, connector);
       if (!connector.agentId) return { id: input.connectorId }; // already base — no-op
 
-      const existingBase = await ctx.connectorModel.findScopedByIdentifier(connector.identifier);
-      if (existingBase) {
+      const moved = await ctx.connectorModel.moveToBaseUnlessIdentifierHeld(
+        input.connectorId,
+        connector.identifier,
+      );
+      if ('holder' in moved) {
         throw new TRPCError({
           code: 'CONFLICT',
           message: `A personal "${connector.identifier}" connector already exists; delete the agent connector instead`,
         });
       }
-
-      await ctx.connectorModel.update(input.connectorId, { agentId: null });
       return { id: input.connectorId };
     }),
 

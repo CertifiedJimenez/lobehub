@@ -1,4 +1,4 @@
-import { withMandatoryApprovalMark } from '@lobechat/const';
+import { requiresSsrfSafeTransport, withMandatoryApprovalMark } from '@lobechat/const';
 import { buildMcpToolMetadata, getMcpToolVisibility } from '@lobechat/const/mcpApp';
 
 import type { ConnectorModel, DecryptedConnector } from '@/database/models/connector';
@@ -55,6 +55,8 @@ export const buildConnectorMcpParams = (
     auth,
     headers: mergedHeaders,
     name: connector.identifier,
+    // On every request to it, the listing and tool calls alike
+    ...(requiresSsrfSafeTransport(connector.metadata) ? { ssrfSafe: true } : {}),
     type: 'http',
     url: connector.mcpServerUrl,
   };
@@ -105,12 +107,6 @@ export interface ConnectorToolSyncOptions {
    * listing nor the rollback of a failed reinstall can bring them back as `auto`.
    */
   pruneMissingAutoTools?: boolean;
-  /**
-   * Reach the server through the SSRF-safe transport (`mcpService.listRawTools`):
-   * for an endpoint the user did not enter, as when an agent installs a
-   * marketplace MCP on its own.
-   */
-  ssrfSafe?: boolean;
 }
 
 /** After a sync: delete the connector's `auto` tools that `listedToolNames` no longer has. */
@@ -214,7 +210,6 @@ export const syncConnectorToolsById = async (
     // announcing MCP Apps; they are synced, and kept from the model, all the same
     rawTools = await mcpService.listRawTools(mcpParams, {
       mcpApps: await isMcpAppsEnabled(ctx.userId),
-      ssrfSafe: options.ssrfSafe,
     });
   } catch (err) {
     await ctx.connectorModel.updateStatus(connectorId, ConnectorStatus.error);
