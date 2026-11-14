@@ -3,6 +3,7 @@ import { isLocalOrPrivateUrl } from '@lobechat/utils';
 import type { SWRResponse } from 'swr';
 
 import type { ConnectorToolPermission } from '@/database/schemas';
+import { buildCloudMcpManifest, cloudManifestTools } from '@/libs/mcp/cloudManifest';
 import {
   cacheScope,
   createReplicaSlice,
@@ -17,7 +18,6 @@ import { type LocalMcpTool, mcpService } from '@/services/mcp';
 import type { StoreSetter } from '@/store/types';
 
 import type { ToolStore } from '../../store';
-import { buildCloudMcpManifest, cloudManifestTools } from '../mcpStore/cloudManifest';
 import {
   agentBoundConnectorsEntity,
   agentBoundConnectorsResource,

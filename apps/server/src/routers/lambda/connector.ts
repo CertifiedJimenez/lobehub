@@ -1,10 +1,5 @@
-import {
-  getComposioAppByIdentifier,
-  hasCallableMcpEndpoint,
-  withMandatoryApprovalMark,
-} from '@lobechat/const';
+import { getComposioAppByIdentifier, hasCallableMcpEndpoint } from '@lobechat/const';
 import { isFullAccessApiKey } from '@lobechat/const/apiKeyScope';
-import { buildMcpToolMetadata } from '@lobechat/const/mcpApp';
 import { upsertPluginMode } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
@@ -53,8 +48,8 @@ import {
   saveConnectorOAuthState,
 } from '@/server/services/connector/stateStore';
 import {
-  pruneMissingAutoConnectorTools,
   syncConnectorToolsById,
+  syncConnectorToolsFromList,
 } from '@/server/services/connector/sync';
 import {
   resolveConnectorAuthorizerId,
@@ -71,10 +66,7 @@ import {
   getConnectorMemberManage,
   isWorkspaceConnectorAdmin,
 } from './_helpers/connectorManagePolicy';
-import {
-  resolveConnectorToolPermission,
-  resolveDefaultPermission,
-} from './_helpers/connectorToolPermission';
+import { resolveDefaultPermission } from './_helpers/connectorToolPermission';
 import { upsertConnectorEntry } from './_helpers/upsertConnectorEntry';
 
 const connectorProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
@@ -1045,31 +1037,9 @@ export const connectorRouter = router({
       // Same gate as `syncTools` — rewrites the connector's tool rows.
       await assertConnectorMaintainable(ctx, target);
 
-      const syncInputs = input.tools.map((t) => ({
-        crudType: inferCrudType(t.toolName),
-        // Applies to new tools only: a synced tool keeps the permission it has
-        defaultPermission: resolveConnectorToolPermission(t.humanIntervention),
-        description: t.description,
-        inputSchema: t.inputSchema,
-        // Refreshed on every sync, unlike the permission: an `always` the
-        // manifest asks for stays mandatory whatever the permission is
-        metadata: withMandatoryApprovalMark(
-          buildMcpToolMetadata(t.visibility),
-          t.humanIntervention,
-        ),
-        toolName: t.toolName,
-      }));
-
-      await ctx.connectorToolModel.upsertMany(input.id, syncInputs);
-      if (input.pruneMissingAutoTools) {
-        await pruneMissingAutoConnectorTools(
-          ctx.connectorToolModel,
-          input.id,
-          syncInputs.map((tool) => tool.toolName),
-        );
-      }
-      await ctx.connectorModel.updateStatus(input.id, ConnectorStatus.connected);
-      return { toolCount: syncInputs.length };
+      return syncConnectorToolsFromList(input.id, input.tools, ctx, {
+        pruneMissingAutoTools: input.pruneMissingAutoTools,
+      });
     }),
 
   /**
