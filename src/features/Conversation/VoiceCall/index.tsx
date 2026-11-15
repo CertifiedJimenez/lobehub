@@ -7,12 +7,9 @@ import { useNavigate, useSearchParams } from 'react-router';
 import type { VoiceComposerControl } from '@/features/ChatInput/SendArea/presentation';
 import { useChatInputStore } from '@/features/ChatInput/store';
 import { useVoiceOverlayTarget } from '@/features/ChatInput/voiceOverlayContext';
-import { useMediaUploadAbility } from '@/hooks/useMediaUploadAbility';
 import { handleConversationSpeech } from '@/services/conversation';
 import { livekitService } from '@/services/livekit';
 import { messageService } from '@/services/message';
-import { useAgentStore } from '@/store/agent';
-import { agentByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 import { operationSelectors } from '@/store/chat/selectors';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
@@ -26,7 +23,6 @@ import { VoiceCallClient } from './client';
 import { notifyVoiceCallError } from './notifyError';
 import { getVoiceReply } from './reply';
 import { isVoiceCallSpeechConfigured } from './speechModels';
-import { uploadTalkFrame } from './uploadFrame';
 import { waitForVoiceReply } from './waitForReply';
 import { VoiceWorkerUnavailableError } from './waitForWorker';
 
@@ -47,11 +43,7 @@ export const VoiceCall = ({
   const writable = useConversationStore((s) => s.composerTarget.writable);
   const store = useConversationStoreApi();
   const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'working'>('idle');
-  const [video, setVideo] = useState(false);
   const [activeClient, setActiveClient] = useState<VoiceCallClient | undefined>(undefined);
-  const model = useAgentStore(agentByIdSelectors.getAgentModelById(context.agentId));
-  const provider = useAgentStore(agentByIdSelectors.getAgentModelProviderById(context.agentId));
-  const { canUploadImage } = useMediaUploadAbility(model, provider, context.agentId);
   const call = useRef<{ client: VoiceCallClient; roomName?: string } | undefined>(undefined);
 
   const end = useCallback(async () => {
@@ -60,7 +52,6 @@ export const VoiceCall = ({
     setActiveClient(undefined);
     setStatus('idle');
     setConversationActive(false);
-    setVideo(false);
     if (!current) return;
     await current.client.close().catch(() => {});
     if (current.roomName) await livekitService.endSession(current.roomName).catch(() => {});
@@ -101,14 +92,11 @@ export const VoiceCall = ({
         if (operationSelectors.isInputVisiblyLoadingByContext(context)(useChatStore.getState())) {
           throw new Error('Wait for the current agent turn to finish');
         }
-        const frame = canUploadImage ? await client.captureFrame() : undefined;
-        const files = frame ? [await uploadTalkFrame(frame, context.agentId, signal)] : undefined;
         signal.throwIfAborted();
         const result = await useChatStore.getState().sendMessage({
           context,
           inputEditor: null,
           message: text,
-          files,
           preserveComposer: true,
           signal,
         });
@@ -135,7 +123,6 @@ export const VoiceCall = ({
         await livekitService.endSession(session.roomName);
         return;
       }
-      setVideo(session.config.mode === 'video' && canUploadImage);
       await client.connect(session.serverUrl, session.token);
       if (call.current === current) setStatus('connected');
     } catch (cause) {
@@ -154,7 +141,6 @@ export const VoiceCall = ({
     context,
     writable,
     store,
-    canUploadImage,
     end,
     setConversationActive,
   ]);
@@ -168,9 +154,7 @@ export const VoiceCall = ({
   }, [search, context.topicId, writable, start, setSearch]);
   const active = status !== 'idle';
 
-  const visualizer = activeClient ? (
-    <CallVisualizer room={activeClient.room} video={video} />
-  ) : null;
+  const visualizer = activeClient ? <CallVisualizer room={activeClient.room} /> : null;
   if (!configured) return null;
 
   return (

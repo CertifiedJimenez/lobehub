@@ -19,6 +19,7 @@ export class LivekitService {
   constructor(
     private readonly userId: string,
     private readonly connection: LivekitConnection,
+    private readonly workspaceId?: string,
   ) {}
 
   async createSession(
@@ -36,10 +37,7 @@ export class LivekitService {
       room: roomName,
       roomJoin: true,
       canPublish: true,
-      canPublishSources:
-        config.mode === 'video'
-          ? [TrackSource.MICROPHONE, TrackSource.CAMERA, TrackSource.SCREEN_SHARE]
-          : [TrackSource.MICROPHONE],
+      canPublishSources: [TrackSource.MICROPHONE],
       canSubscribe: true,
       canPublishData: true,
     });
@@ -55,7 +53,7 @@ export class LivekitService {
             ...(inferenceASR
               ? {
                   asrCredentialTicket: issueCredentialTicket(
-                    { userId: this.userId, ...inferenceASR },
+                    { userId: this.userId, workspaceId: this.workspaceId, ...inferenceASR },
                     this.connection.apiSecret,
                   ),
                 }
@@ -63,7 +61,7 @@ export class LivekitService {
             ...(needsTTSCredentials
               ? {
                   credentialTicket: issueCredentialTicket(
-                    { userId: this.userId, ...config.tts },
+                    { userId: this.userId, workspaceId: this.workspaceId, ...config.tts },
                     this.connection.apiSecret,
                   ),
                 }
@@ -93,14 +91,9 @@ export class LivekitService {
     await this.adminRequest('DeleteRoom', { room: roomName });
   }
 
-  async checkConnection() {
-    await this.adminRequest('ListRooms', {});
-    return { ok: true as const };
-  }
-
-  private async adminRequest(method: 'ListRooms' | 'DeleteRoom', body: object) {
+  private async adminRequest(method: 'DeleteRoom', body: object) {
     const token = new AccessToken(this.connection.apiKey, this.connection.apiSecret, { ttl: '1m' });
-    token.addGrant(method === 'DeleteRoom' ? { roomCreate: true } : { roomList: true });
+    token.addGrant({ roomCreate: true });
     const url = this.connection.url.replace(/^ws/, 'http').replace(/\/$/, '');
     const response = await ssrfSafeFetch(`${url}/twirp/livekit.RoomService/${method}`, {
       method: 'POST',
@@ -112,7 +105,7 @@ export class LivekitService {
       },
       body: JSON.stringify(body),
     });
-    if (!response.ok && !(method === 'DeleteRoom' && response.status === 404)) {
+    if (!response.ok && response.status !== 404) {
       throw new Error('LiveKit connection failed. Check the server URL and credentials.');
     }
     await response.body?.cancel();

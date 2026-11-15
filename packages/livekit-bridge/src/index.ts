@@ -28,7 +28,6 @@ export const conversationConfigSchema = z.object({
       voice: z.string().trim().min(1).max(256).default('9626c31c-bec5-4cca-baa8-f8ba9e84c8bc'),
     })
     .prefault({}),
-  mode: z.enum(['voice', 'video']).default('voice'),
   tts: z
     .object({ provider: z.string().max(128), model: z.string().max(128) })
     .default({ provider: '', model: '' }),
@@ -86,10 +85,3 @@ export type SpeechRequest = z.infer<typeof speechRequestSchema>;
 export type SpeechResponse = z.infer<typeof speechResponseSchema>;
 export type VoiceTurn = z.infer<typeof voiceTurnSchema>;
 export type VoiceResult = z.infer<typeof voiceResultSchema>;
-
-export const VOICE_CONFIGURE_METHOD = 'lobehub.conversation.configure';
-export const voicePreferencesSchema = conversationConfigSchema.pick({
-  language: true,
-  voice: true,
-  inference: true,
-});

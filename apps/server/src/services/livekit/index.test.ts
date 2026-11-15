@@ -27,7 +27,7 @@ describe('LivekitService', () => {
   it('dispatches independent opaque credential references for selected LiveKit speech models', async () => {
     const asr = { provider: 'livekit', model: 'deepgram/flux-general-en' };
     const tts = { provider: 'livekit', model: 'cartesia/sonic-3.6' };
-    const session = await new LivekitService('alice', connection).createSession(
+    const session = await new LivekitService('alice', connection, 'workspace-a').createSession(
       conversationConfigSchema.parse({ speechBackend: 'livekit', ttsBackend: 'livekit', tts }),
       true,
       asr,
@@ -42,8 +42,11 @@ describe('LivekitService', () => {
           .digest('hex'),
         connection.apiSecret,
       );
-    expect(redeem(metadata.asrCredentialTicket)).toMatchObject(asr);
-    expect(redeem(metadata.credentialTicket)).toMatchObject(tts);
+    expect(redeem(metadata.asrCredentialTicket)).toMatchObject({
+      ...asr,
+      workspaceId: 'workspace-a',
+    });
+    expect(redeem(metadata.credentialTicket)).toMatchObject({ ...tts, workspaceId: 'workspace-a' });
     expect(JSON.stringify(metadata)).not.toContain(connection.apiSecret);
   });
   const verifier = new TokenVerifier('devkey', 'development-secret-for-tests-only');
@@ -63,12 +66,12 @@ describe('LivekitService', () => {
     expect(session.roomName).toMatch(new RegExp('^' + voiceRoomPrefix('alice')));
     expect(session).not.toHaveProperty('apiSecret');
   });
-  it('allows camera and screen video only when configured and dispatches speech settings', async () => {
+  it('keeps grants microphone-only even with legacy video preferences', async () => {
     const session = await new LivekitService('alice', connection).createSession(
       conversationConfigSchema.parse({ mode: 'video', voice: 'nova' }),
     );
     const claims = await verifier.verify(session.token);
-    expect(claims.video?.canPublishSources).toEqual(['microphone', 'camera', 'screen_share']);
+    expect(claims.video?.canPublishSources).toEqual(['microphone']);
     const dispatch = claims.roomConfig?.agents?.[0];
     expect(dispatch?.agentName).toBe('lobehub-voice');
     expect(JSON.parse(dispatch!.metadata!).config).toMatchObject({

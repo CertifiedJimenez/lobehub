@@ -11,6 +11,7 @@ import { z } from 'zod';
 
 const ticketSchema = z.object({
   userId: z.string().min(1),
+  workspaceId: z.string().min(1).optional(),
   provider: z.string().min(1),
   model: z.string().min(1),
   expiresAt: z.number(),

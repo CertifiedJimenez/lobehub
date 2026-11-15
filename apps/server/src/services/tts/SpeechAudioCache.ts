@@ -25,6 +25,7 @@ export interface SpeechCacheIdentity {
   model: string;
   params: Record<string, unknown>;
   provider: string;
+  providerRevision?: string;
   voice: string;
   voiceIsDefault: boolean;
 }

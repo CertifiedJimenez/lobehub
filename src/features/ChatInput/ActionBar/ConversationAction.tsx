@@ -2,11 +2,13 @@
 
 import { lazy, type ReactNode, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router';
+import { useParams } from 'react-router';
 
 import { notifyVoiceCallError } from '@/features/Conversation/VoiceCall/notifyError';
 import { isVoiceCallSpeechConfigured } from '@/features/Conversation/VoiceCall/speechModels';
-import { topicService } from '@/services/topic';
+import { getProjectTopicPath } from '@/features/Projects/Layout/navigation';
+import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
+import { useChatStore } from '@/store/chat';
 import { useServerConfigStore } from '@/store/serverConfig';
 import { useUserStore } from '@/store/user';
 import { settingsSelectors } from '@/store/user/selectors';
@@ -29,31 +31,41 @@ const renderDefaultAction = (control: VoiceComposerControl) => (
   <SendButton voiceControl={control} />
 );
 
-const NewConversation = ({ children = renderDefaultAction }: ConversationActionProps) => {
+export const useNewConversationControl = (): VoiceComposerControl => {
   const agentId = useAgentId();
   const { canUseResource } = useChatInputResourceAccess();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceAwareNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
   const { t } = useTranslation('chat');
   const [busy, setBusy] = useState(false);
-  return children({
+  return {
     active: false,
     disabled: !agentId || !canUseResource || busy,
     loading: busy,
     onClick: () => {
       const state = useUserStore.getState();
       if (!isVoiceCallSpeechConfigured(settingsSelectors.currentSystemAgent(state))) {
-        navigate('/settings/service-model');
+        navigate('/settings/service-model', { escape: true });
         return;
       }
       setBusy(true);
-      void topicService
-        .createTopic({ sessionId: agentId, title: t('voiceCall.start') })
-        .then((topicId) => navigate(`/agent/${agentId}/${topicId}?conversation=start`))
+      void useChatStore
+        .getState()
+        .internal_createTopic({ sessionId: agentId, title: t('voiceCall.start') })
+        .then((topicId) => {
+          const path = projectId
+            ? getProjectTopicPath(projectId, topicId)
+            : `/agent/${agentId}/${topicId}`;
+          navigate(`${path}?conversation=start`);
+        })
         .catch((error) => notifyVoiceCallError(error))
         .finally(() => setBusy(false));
     },
-  });
+  };
 };
+
+const NewConversation = ({ children = renderDefaultAction }: ConversationActionProps) =>
+  children(useNewConversationControl());
 
 export const ConversationAction = ({ children = renderDefaultAction }: ConversationActionProps) => {
   const target = useConversationTarget();

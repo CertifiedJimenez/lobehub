@@ -6,16 +6,13 @@ import {
   RoomAudioRenderer,
   RoomContext,
   StartAudio,
-  TrackLoop,
   useLocalParticipant,
-  useTracks,
   useVoiceAssistant,
-  VideoTrack,
 } from '@livekit/components-react';
 import { ActionIcon, Flexbox } from '@lobehub/ui';
 import { cssVar } from '@lobehub/ui/stylex/cssVar.stylex';
 import * as stylex from '@stylexjs/stylex';
-import { type Room, Track } from 'livekit-client';
+import { type Room } from 'livekit-client';
 import { Mic, MicOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -48,7 +45,7 @@ const styles = stylex.create({
   muted: { color: cssVar.colorError },
 });
 
-const Visualizer = ({ video }: { video: boolean }) => {
+const Visualizer = () => {
   const { t } = useTranslation('chat');
   const { state, audioTrack } = useVoiceAssistant();
   const { microphoneTrack, isMicrophoneEnabled } = useLocalParticipant();
@@ -59,9 +56,6 @@ const Visualizer = ({ video }: { video: boolean }) => {
     microphoneEnabled: isMicrophoneEnabled,
     microphoneTrack: microphoneTrack?.audioTrack,
     agentTrack: audioTrack,
-  });
-  const tracks = useTracks([Track.Source.Camera, Track.Source.ScreenShare], {
-    onlySubscribed: false,
   });
   return (
     <Flexbox className={stylex.props(styles.visualizer).className} gap={8}>
@@ -77,13 +71,6 @@ const Visualizer = ({ video }: { video: boolean }) => {
           {t(getVoiceStatusKey(activityState, isMicrophoneEnabled))}
         </span>
       </Flexbox>
-      {video && (
-        <TrackLoop tracks={tracks}>
-          <VideoTrack
-            style={{ width: '100%', maxHeight: 160, objectFit: 'contain', borderRadius: 12 }}
-          />
-        </TrackLoop>
-      )}
     </Flexbox>
   );
 };
@@ -109,9 +96,9 @@ const Microphone = ({ onError }: { onError: (error: unknown) => void }) => {
   );
 };
 
-export const CallVisualizer = ({ room, ...props }: { room: Room; video: boolean }) => (
+export const CallVisualizer = ({ room }: { room: Room }) => (
   <RoomContext value={room}>
-    <Visualizer {...props} />
+    <Visualizer />
   </RoomContext>
 );
 export const CallMicrophone = ({

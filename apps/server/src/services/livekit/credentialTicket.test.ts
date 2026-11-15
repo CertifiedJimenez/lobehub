@@ -23,6 +23,18 @@ describe('worker credential tickets', () => {
       model: 's2-pro',
     });
   });
+  it('binds workspace scope into the authenticated reference', () => {
+    const ticket = issueCredentialTicket(
+      { userId: 'alice', workspaceId: 'workspace-a', provider: 'livekit', model: 'asr' },
+      secret,
+    );
+    expect(redeemCredentialTicket(ticket, sign(ticket), secret)).toMatchObject({
+      userId: 'alice',
+      workspaceId: 'workspace-a',
+      provider: 'livekit',
+      model: 'asr',
+    });
+  });
   it('requires deployment authentication even when the participant can see the ticket', () => {
     const ticket = issueCredentialTicket(
       { userId: 'user', provider: 'fishaudio', model: 's2-pro' },

@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TTSService } from './index';
 
-const { files, findModel, textToSpeech, initializeRuntime } = vi.hoisted(() => ({
+const { files, findModel, findProvider, textToSpeech, initializeRuntime } = vi.hoisted(() => ({
   files: new Map<string, Buffer>(),
   findModel: vi.fn(),
+  findProvider: vi.fn(),
   initializeRuntime: vi.fn(),
   textToSpeech: vi.fn(),
 }));
@@ -16,6 +17,11 @@ vi.mock('@/database/models/aiModel', () => ({
   }),
 }));
 vi.mock('@/server/modules/ModelRuntime', () => ({ initModelRuntimeFromDB: initializeRuntime }));
+vi.mock('@/database/models/aiProvider', () => ({
+  AiProviderModel: vi.fn(function () {
+    return { findById: findProvider };
+  }),
+}));
 vi.mock('@/server/services/file', () => ({
   FileService: vi.fn(function () {
     return {
@@ -43,6 +49,10 @@ beforeEach(() => {
   files.clear();
   vi.clearAllMocks();
   findModel.mockResolvedValue({ settings: { ttsVoice: 'nova' } });
+  findProvider.mockResolvedValue({
+    keyVaults: 'encrypted-endpoint-a',
+    settings: { sdkType: 'openai' },
+  });
   initializeRuntime.mockResolvedValue({ textToSpeech });
   textToSpeech.mockImplementation(async ({ voice }) => ({
     audio: new TextEncoder().encode(voice).buffer,
@@ -52,6 +62,34 @@ beforeEach(() => {
 });
 
 describe('TTSService persistent speech cache', () => {
+  it('regenerates after the provider endpoint or SDK changes without changing its ID', async () => {
+    const custom = { ...request, provider: 'custom-speech' };
+    await service().synthesize(custom);
+    await service().synthesize(custom);
+    expect(textToSpeech).toHaveBeenCalledTimes(1);
+
+    findProvider.mockResolvedValue({
+      keyVaults: 'encrypted-endpoint-b',
+      settings: { sdkType: 'openai' },
+    });
+    await service().synthesize(custom);
+    expect(textToSpeech).toHaveBeenCalledTimes(2);
+
+    findProvider.mockResolvedValue({
+      keyVaults: 'encrypted-endpoint-b',
+      settings: { sdkType: 'fishaudio' },
+    });
+    await service().synthesize(custom);
+    expect(textToSpeech).toHaveBeenCalledTimes(3);
+  });
+
+  it('bypasses stored audio if current provider configuration cannot be read', async () => {
+    await service().synthesize(request);
+    findProvider.mockRejectedValueOnce(new Error('provider lookup unavailable'));
+    await service().synthesize(request);
+    expect(textToSpeech).toHaveBeenCalledTimes(2);
+  });
+
   it('replays the saved voice across requests, then regenerates when the preference changes', async () => {
     const first = await service().synthesize(request);
     const replay = await service().synthesize(request);

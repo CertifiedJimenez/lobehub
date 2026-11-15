@@ -1,5 +1,4 @@
 import {
-  type ConversationConfig,
   MAX_SPEECH_PAYLOAD,
   SPEECH_REQUEST_TOPIC,
   SPEECH_RESPONSE_TOPIC,
@@ -8,21 +7,12 @@ import {
   type SpeechResponse,
   speechResponseSchema,
   VOICE_CANCEL_METHOD,
-  VOICE_CONFIGURE_METHOD,
   VOICE_RESULT_TOPIC,
   VOICE_TURN_METHOD,
   voiceCancelSchema,
-  voicePreferencesSchema,
   voiceTurnSchema,
 } from '@lobechat/livekit-bridge';
-import {
-  DisconnectReason,
-  ParticipantKind,
-  Room,
-  RoomEvent,
-  RpcError,
-  Track,
-} from 'livekit-client';
+import { DisconnectReason, ParticipantKind, Room, RoomEvent, RpcError } from 'livekit-client';
 
 import { waitForVoiceWorker } from './waitForWorker';
 
@@ -41,13 +31,8 @@ export class VoiceCallClient {
   private closed = false;
   private readonly speech = new Set<AbortController>();
   private readonly connectionController = new AbortController();
-  readonly preview = document.createElement('video');
 
   constructor(private readonly options: VoiceCallOptions) {
-    this.preview.autoplay = true;
-    this.preview.muted = true;
-    this.preview.playsInline = true;
-    this.preview.style.cssText = 'width:100%;max-height:240px;object-fit:contain;border-radius:8px';
     this.room.on(RoomEvent.Disconnected, (reason) => {
       if (this.closed) return;
       void this.close();
@@ -160,53 +145,10 @@ export class VoiceCallClient {
     if (!this.closed) await waitForVoiceWorker(this.room, this.connectionController.signal);
   }
 
-  async configure(config: ConversationConfig) {
-    const worker = [...this.room.remoteParticipants.values()].find(
-      (p) => p.kind === ParticipantKind.AGENT,
-    );
-    if (!worker || this.closed) throw new Error('The conversation is not connected');
-    await this.room.localParticipant.performRpc({
-      destinationIdentity: worker.identity,
-      method: VOICE_CONFIGURE_METHOD,
-      payload: JSON.stringify(voicePreferencesSchema.parse(config)),
-    });
-  }
-
-  async captureFrame(): Promise<File | undefined> {
-    const participant = this.room.localParticipant;
-    const track =
-      participant.getTrackPublication(Track.Source.ScreenShare)?.track ??
-      participant.getTrackPublication(Track.Source.Camera)?.track;
-    if (!track || track.isMuted) return;
-    const video = this.preview;
-    video.srcObject = new MediaStream([track.mediaStreamTrack]);
-    await video.play();
-    if (!video.videoWidth || !video.videoHeight || video.readyState < 2) {
-      throw new Error('Video is not ready');
-    }
-    const scale = Math.min(1, 1024 / Math.max(video.videoWidth, video.videoHeight));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(video.videoWidth * scale);
-    canvas.height = Math.round(video.videoHeight * scale);
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Video capture is not available');
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(
-        (value) => (value ? resolve(value) : reject(new Error('Video capture failed'))),
-        'image/jpeg',
-        0.75,
-      ),
-    );
-    return new File([blob], `talk-frame-${Date.now()}.jpg`, { type: 'image/jpeg' });
-  }
-
   async close() {
     if (this.closed) return;
     this.closed = true;
     this.connectionController.abort();
-    this.preview.pause();
-    this.preview.srcObject = null;
     for (const controller of this.speech) controller.abort();
     this.speech.clear();
     this.active?.controller.abort();

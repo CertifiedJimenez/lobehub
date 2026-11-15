@@ -1,14 +1,11 @@
 import { fileURLToPath } from 'node:url';
 
-import { asLanguageCode, cli, defineAgent, inference, ServerOptions, voice } from '@livekit/agents';
-import * as fishaudio from '@livekit/agents-plugin-fishaudio';
+import { cli, defineAgent, ServerOptions, voice } from '@livekit/agents';
 import * as silero from '@livekit/agents-plugin-silero';
 import {
   getConversationTTSBackend,
   VOICE_AGENT_NAME,
-  VOICE_CONFIGURE_METHOD,
   voiceJobSchema,
-  voicePreferencesSchema,
 } from '@lobechat/livekit-bridge';
 import dotenv from 'dotenv';
 
@@ -60,26 +57,6 @@ export default defineAgent({
       await tts.close();
     });
     await ctx.connect();
-    ctx.room.localParticipant?.registerRpcMethod(
-      VOICE_CONFIGURE_METHOD,
-      async ({ callerIdentity, payload }) => {
-        if (callerIdentity !== participantIdentity)
-          throw new Error('Only the conversation owner can change voice preferences');
-        const next = voicePreferencesSchema.parse(JSON.parse(payload));
-        if (stt instanceof inference.STT)
-          stt.updateOptions({
-            language: asLanguageCode(next.language),
-          });
-        else stt.setLanguage(next.language);
-        if (tts instanceof inference.TTS)
-          tts.updateOptions({
-            language: asLanguageCode(next.language),
-            voice: next.voice || config.voice,
-          });
-        if (tts instanceof fishaudio.TTS) tts.updateOptions({ voiceId: next.voice });
-        return 'configured';
-      },
-    );
     await session.start({
       agent,
       room: ctx.room,

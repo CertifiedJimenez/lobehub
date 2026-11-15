@@ -10,6 +10,9 @@ import { livekitRouter } from './livekit';
 const mocks = vi.hoisted(() => ({
   settings: vi.fn(),
   model: vi.fn(),
+  providerScope: vi.fn(),
+  modelScope: vi.fn(),
+  serviceScope: vi.fn(),
   provider: vi.fn(),
   createSession: vi.fn(),
   connection: vi.fn(),
@@ -19,6 +22,16 @@ vi.mock('@/libs/trpc/lambda', async () => {
   const { initTRPC } = await import('@trpc/server');
   const t = initTRPC.create();
   return { router: t.router, authedProcedure: t.procedure, publicProcedure: t.procedure };
+});
+vi.mock('@/business/server/trpc-middlewares/workspaceAuth', async () => {
+  const { authedProcedure } = await import('@/libs/trpc/lambda');
+  return {
+    wsCompatProcedure: authedProcedure,
+    requireWorkspaceRoleWhenScoped:
+      () =>
+      ({ next }: any) =>
+        next(),
+  };
 });
 vi.mock('@/libs/trpc/lambda/middleware', () => ({
   serverDatabase: ({ next }: any) => next({ ctx: { serverDB: {} } }),
@@ -31,11 +44,17 @@ vi.mock('@/database/models/user', () => ({
 }));
 vi.mock('@/database/models/aiModel', () => ({
   AiModelModel: class {
+    constructor(...args: unknown[]) {
+      mocks.modelScope(...args);
+    }
     findByIdAndProvider = mocks.model;
   },
 }));
 vi.mock('@/database/models/aiProvider', () => ({
   AiProviderModel: class {
+    constructor(...args: unknown[]) {
+      mocks.providerScope(...args);
+    }
     getAiProviderById = mocks.provider;
   },
 }));
@@ -52,6 +71,9 @@ vi.mock('@/server/services/tts', () => ({
 }));
 vi.mock('@/server/services/livekit', () => ({
   LivekitService: class {
+    constructor(...args: unknown[]) {
+      mocks.serviceScope(...args);
+    }
     createSession = mocks.createSession;
   },
   voiceRoomPrefix: vi.fn(),
@@ -76,6 +98,31 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe('native Conversation sessions', () => {
+  it('uses active workspace scope for speech routing and the minted session', async () => {
+    const workspaceCaller = livekitRouter.createCaller({
+      userId: 'alice',
+      workspaceId: 'workspace-a',
+    } as never);
+    await workspaceCaller.createSession();
+    expect(mocks.modelScope).toHaveBeenCalledWith({}, 'alice', 'workspace-a');
+    expect(mocks.providerScope.mock.calls.every((args) => args[2] === 'workspace-a')).toBe(true);
+    expect(mocks.serviceScope).toHaveBeenCalledWith('alice', expect.any(Object), 'workspace-a');
+  });
+
+  it('redeems the workspace bound to the ticket, ignoring caller scope', async () => {
+    const ticket = issueCredentialTicket(
+      { userId: 'alice', workspaceId: 'workspace-a', provider: 'livekit', model: 'asr' },
+      'server-secret',
+    );
+    const signature = createHmac('sha256', 'server-secret')
+      .update(`lobehub.voice.credentials:${ticket}`)
+      .digest('hex');
+    mocks.params.mockReturnValue({ apiKey: 'key', apiSecret: 'secret' });
+    await caller.credentials({ ticket, signature });
+    expect(mocks.providerScope).toHaveBeenCalledWith({}, 'alice', 'workspace-a');
+    expect(mocks.modelScope).toHaveBeenCalledWith({}, 'alice', 'workspace-a');
+  });
+
   it('routes a selected LiveKit recognition model without replacing local Fish output', async () => {
     const asr = { provider: 'livekit', model: 'deepgram/flux-general-en' };
     mocks.settings.mockResolvedValue({ systemAgent: { ...nativeModels, asr } });

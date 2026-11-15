@@ -21,6 +21,13 @@ export interface ConversationTTSCredentials {
   speed?: number;
 }
 
+// Fish accepts either the API host or its /v1 root in provider settings.
+const normalizeFishEndpoint = (baseURL?: string) => {
+  let endpoint = baseURL?.trim();
+  while (endpoint?.endsWith('/')) endpoint = endpoint.slice(0, -1);
+  return endpoint?.endsWith('/v1') ? endpoint.slice(0, -3) : endpoint;
+};
+
 /** Credentials arrive over an authenticated server-to-server exchange, never room metadata. */
 export const createConversationTTS = (
   config: SpeechConfig,
@@ -48,7 +55,7 @@ export const createConversationTTS = (
     throw new Error('Speech credentials do not match the selected service model.');
   return new fishaudio.TTS({
     apiKey: credentials.apiKey,
-    baseURL: credentials.baseURL?.replace(/\/$/, ''),
+    baseURL: normalizeFishEndpoint(credentials.baseURL),
     model: config.tts.model,
     voiceId: config.voice || undefined,
     sampleRate: credentials.sampleRate ?? 24000,

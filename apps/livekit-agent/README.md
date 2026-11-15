@@ -50,10 +50,6 @@ remain owned by LobeHub. The LiveKit LLM adapter delegates reasoning to LobeHub.
 It waits for the completed reply before synthesis. Closing or navigating away
 disconnects media and cancels pending operations.
 
-Video mode allows camera/screen sharing. A JPEG frame is attached to each spoken
-turn when the selected agent accepts images and is saved through the normal
-upload path. Microphone-only mode receives no camera/screen publication grant.
-
 ## Direct Fish Audio streaming
 
 For a Fish Audio runtime (including a custom provider with Fish SDK type), the

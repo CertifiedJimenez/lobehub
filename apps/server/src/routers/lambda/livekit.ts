@@ -5,11 +5,15 @@ import type { UserSystemAgentConfig } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import {
+  requireWorkspaceRoleWhenScoped,
+  wsCompatProcedure,
+} from '@/business/server/trpc-middlewares/workspaceAuth';
 import { AiModelModel } from '@/database/models/aiModel';
 import { AiProviderModel } from '@/database/models/aiProvider';
 import { UserModel } from '@/database/models/user';
 import { appEnv } from '@/envs/app';
-import { authedProcedure, publicProcedure, router } from '@/libs/trpc/lambda';
+import { publicProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { parseSystemAgent } from '@/server/globalConfig/parseSystemAgent';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
@@ -22,7 +26,9 @@ import { LivekitService, voiceRoomPrefix } from '@/server/services/livekit';
 import { redeemCredentialTicket } from '@/server/services/livekit/credentialTicket';
 import { findTTSModelCard } from '@/server/services/tts';
 
-const conversationProcedure = authedProcedure.use(serverDatabase);
+const conversationProcedure = wsCompatProcedure
+  .use(serverDatabase)
+  .use(requireWorkspaceRoleWhenScoped('member'));
 const requireConnection = () => {
   const connection = getLivekitConnection();
   if (!connection)
@@ -54,10 +60,11 @@ export const livekitRouter = router({
       } catch {
         throw new TRPCError({ code: 'UNAUTHORIZED' });
       }
-      const provider = await new AiProviderModel(ctx.serverDB, reference.userId).getAiProviderById(
-        reference.provider,
-        KeyVaultsGateKeeper.getUserKeyVaults,
-      );
+      const provider = await new AiProviderModel(
+        ctx.serverDB,
+        reference.userId,
+        reference.workspaceId,
+      ).getAiProviderById(reference.provider, KeyVaultsGateKeeper.getUserKeyVaults);
       const runtimeProvider = resolveRuntimeProvider(
         reference.provider,
         provider?.settings?.sdkType,
@@ -75,10 +82,11 @@ export const livekitRouter = router({
           code: 'PRECONDITION_FAILED',
           message: 'Configure the selected speech provider credentials in AI Providers.',
         });
-      const model = await new AiModelModel(ctx.serverDB, reference.userId).findByIdAndProvider(
-        reference.model,
-        reference.provider,
-      );
+      const model = await new AiModelModel(
+        ctx.serverDB,
+        reference.userId,
+        reference.workspaceId,
+      ).findByIdAndProvider(reference.model, reference.provider);
       const card = findTTSModelCard(reference.provider, reference.model);
       const parameters = model?.parameters as {
         sampleRate?: { default?: number };
@@ -116,10 +124,11 @@ export const livekitRouter = router({
     const preferences = conversationConfigSchema.parse(
       (settings?.general as { conversation?: unknown } | null)?.conversation ?? {},
     );
-    const model = await new AiModelModel(ctx.serverDB, ctx.userId).findByIdAndProvider(
-      tts.model,
-      tts.provider,
-    );
+    const model = await new AiModelModel(
+      ctx.serverDB,
+      ctx.userId,
+      ctx.workspaceId ?? undefined,
+    ).findByIdAndProvider(tts.model, tts.provider);
     const card = findTTSModelCard(tts.provider, tts.model);
     const savedVoice = model?.settings?.ttsVoice?.trim();
     const preferredVoice =
@@ -127,16 +136,20 @@ export const livekitRouter = router({
         ? preferences.voice
         : '';
     const voice = preferredVoice || savedVoice || card?.parameters?.voice?.default || '';
-    const provider = await new AiProviderModel(ctx.serverDB, ctx.userId).getAiProviderById(
-      tts.provider,
-    );
+    const provider = await new AiProviderModel(
+      ctx.serverDB,
+      ctx.userId,
+      ctx.workspaceId ?? undefined,
+    ).getAiProviderById(tts.provider);
     const directFish =
       resolveRuntimeProvider(tts.provider, provider?.settings?.sdkType) === 'fishaudio';
     const inferenceTTS =
       resolveRuntimeProvider(tts.provider, provider?.settings?.sdkType) === 'livekit';
-    const asrProvider = await new AiProviderModel(ctx.serverDB, ctx.userId).getAiProviderById(
-      asr.provider,
-    );
+    const asrProvider = await new AiProviderModel(
+      ctx.serverDB,
+      ctx.userId,
+      ctx.workspaceId ?? undefined,
+    ).getAiProviderById(asr.provider);
     const inferenceASR =
       resolveRuntimeProvider(asr.provider, asrProvider?.settings?.sdkType) === 'livekit';
     if (inferenceTTS && !voice)
@@ -144,7 +157,7 @@ export const livekitRouter = router({
         code: 'PRECONDITION_FAILED',
         message: 'Choose a voice for the selected LiveKit speech output model.',
       });
-    return new LivekitService(ctx.userId, connection).createSession(
+    return new LivekitService(ctx.userId, connection, ctx.workspaceId ?? undefined).createSession(
       {
         ...preferences,
         enabled: true,
