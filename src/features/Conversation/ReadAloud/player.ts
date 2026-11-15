@@ -1,7 +1,9 @@
 import { synthesizeSpeech } from '@/services/tts';
 
-type PlaybackState = 'loading' | 'playing';
+type PlaybackState = 'loading' | 'playing' | 'ready';
 type Synthesize = typeof synthesizeSpeech;
+
+export class SpeechPlaybackTimeoutError extends Error {}
 
 /** Bound each request and prefer word boundaries without dropping any reply text. */
 export const splitSpeechText = (text: string): string[] => {
@@ -30,6 +32,7 @@ export class ReadAloudPlayer {
     abort: AbortController;
     audio: HTMLAudioElement;
     id: string;
+    play: () => Promise<void>;
     state: PlaybackState;
     url?: string;
   };
@@ -65,6 +68,8 @@ export class ReadAloudPlayer {
 
   toggle = async (id: string, text: string, onError: (error: unknown) => void) => {
     if (this.current?.id === id) {
+      // Retry from the user's click without another request or losing the generated audio.
+      if (this.current.state === 'ready') return this.current.play();
       this.stop();
       return;
     }
@@ -76,6 +81,7 @@ export class ReadAloudPlayer {
       abort: new AbortController(),
       audio: new Audio(),
       id,
+      play: async () => {},
       state: 'loading' as PlaybackState,
       url: undefined as string | undefined,
     };
@@ -86,6 +92,22 @@ export class ReadAloudPlayer {
       this.stop();
       onError(error);
     };
+    current.play = async () => {
+      try {
+        await current.audio.play();
+        if (this.current !== current) return;
+        current.state = 'playing';
+        this.emit();
+      } catch (error) {
+        if (this.current !== current) return;
+        if (error instanceof Error && error.name === 'NotAllowedError') {
+          current.state = 'ready';
+          this.emit();
+        } else {
+          fail(error);
+        }
+      }
+    };
     const next = async (): Promise<void> => {
       if (this.current !== current) return;
       const input = chunks.shift();
@@ -95,19 +117,32 @@ export class ReadAloudPlayer {
       }
       current.state = 'loading';
       this.emit();
+      const { signal } = current.abort;
+      let onAbort!: () => void;
+      const aborted = new Promise<never>((_, reject) => {
+        onAbort = () => reject(signal.reason);
+        signal.addEventListener('abort', onAbort, { once: true });
+      });
+      const timeout = setTimeout(
+        () => current.abort.abort(new SpeechPlaybackTimeoutError('Speech generation timed out')),
+        60_000,
+      );
       try {
-        const result = await this.synthesize(input, current.abort.signal);
+        const result = await Promise.race([this.synthesize(input, signal), aborted]);
+        clearTimeout(timeout);
+        signal.removeEventListener('abort', onAbort);
         if (this.current !== current) return;
         if (current.url) URL.revokeObjectURL(current.url);
         const bytes = Uint8Array.from(atob(result.audioBase64), (value) => value.charCodeAt(0));
+        if (!bytes.length) throw new Error('Speech generation returned empty audio');
         current.url = URL.createObjectURL(new Blob([bytes], { type: result.mimeType }));
         current.audio.src = current.url;
-        await current.audio.play();
-        if (this.current !== current) return;
-        current.state = 'playing';
-        this.emit();
+        await current.play();
       } catch (error) {
         fail(error);
+      } finally {
+        clearTimeout(timeout);
+        signal.removeEventListener('abort', onAbort);
       }
     };
     current.audio.onended = () => {

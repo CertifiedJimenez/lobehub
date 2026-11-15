@@ -1,10 +1,13 @@
 import { LOADING_FLAT } from '@lobechat/const';
-import { toast } from '@lobehub/ui';
-import { Square, Volume2 } from 'lucide-react';
-import { useEffect, useSyncExternalStore } from 'react';
+import { Icon, toast } from '@lobehub/ui';
+import { LoaderCircle, Play, Square, Volume2 } from 'lucide-react';
+import { createElement, useEffect, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { readAloudPlayer } from '@/features/Conversation/ReadAloud/player';
+import {
+  readAloudPlayer,
+  SpeechPlaybackTimeoutError,
+} from '@/features/Conversation/ReadAloud/player';
 import { SpeechOutputNotConfiguredError } from '@/services/tts';
 import { markdownToTxt } from '@/utils/markdownToTxt';
 
@@ -31,19 +34,31 @@ export const ttsAction = defineAction({
             description: t(
               error instanceof SpeechOutputNotConfiguredError
                 ? 'readAloud.notConfigured'
-                : 'readAloud.error',
+                : error instanceof SpeechPlaybackTimeoutError
+                  ? 'readAloud.timeout'
+                  : 'readAloud.error',
             ),
             id: 'read-aloud-error',
           });
         }),
-      icon: state ? Square : Volume2,
+      // Keep cancellation enabled while showing the native loading indicator.
+      icon:
+        state === 'loading'
+          ? createElement(Icon, { icon: LoaderCircle, spin: true })
+          : state === 'ready'
+            ? Play
+            : state === 'playing'
+              ? Square
+              : Volume2,
       key: 'tts',
       label: t(
         state === 'loading'
           ? 'readAloud.cancel'
           : state === 'playing'
             ? 'readAloud.stop'
-            : 'readAloud.start',
+            : state === 'ready'
+              ? 'readAloud.play'
+              : 'readAloud.start',
       ),
     };
   },

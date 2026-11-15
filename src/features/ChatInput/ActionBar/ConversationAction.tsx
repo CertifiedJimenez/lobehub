@@ -2,7 +2,7 @@
 
 import { lazy, type ReactNode, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 
 import { notifyVoiceCallError } from '@/features/Conversation/VoiceCall/notifyError';
 import { isVoiceCallSpeechConfigured } from '@/features/Conversation/VoiceCall/speechModels';
@@ -13,10 +13,9 @@ import { settingsSelectors } from '@/store/user/selectors';
 
 import { useAgentId } from '../hooks/useAgentId';
 import { useChatInputResourceAccess } from '../hooks/useChatInputResourceAccess';
-import { useTopicId } from '../hooks/useTopicId';
 import type { VoiceComposerControl } from '../SendArea/presentation';
 import SendButton from '../SendArea/SendButton';
-import { resolveConversationTarget } from './resolveConversationTarget';
+import { useConversationTarget } from './useConversationTarget';
 
 const VoiceCall = lazy(() =>
   import('@/features/Conversation/VoiceCall').then((module) => ({ default: module.VoiceCall })),
@@ -57,11 +56,10 @@ const NewConversation = ({ children = renderDefaultAction }: ConversationActionP
 };
 
 export const ConversationAction = ({ children = renderDefaultAction }: ConversationActionProps) => {
-  const { pathname } = useLocation();
-  const topicId = useTopicId();
+  const target = useConversationTarget();
   const configured = useServerConfigStore((s) => s.serverConfig.livekitConfigured);
   if (!configured) return null;
-  return resolveConversationTarget(pathname, topicId) === 'new' ? (
+  return target === 'new' ? (
     <NewConversation>{children}</NewConversation>
   ) : (
     <Suspense fallback={children({ active: false, disabled: true, onClick: () => {} })}>

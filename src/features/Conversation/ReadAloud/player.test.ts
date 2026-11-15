@@ -114,6 +114,46 @@ describe('reply read-aloud', () => {
     expect(player.getState('reply')).toBe('playing');
   });
 
+  it('retains generated audio when autoplay is blocked and retries from the next click', async () => {
+    synthesize.mockImplementationOnce(async () => {
+      FakeAudio.instances[0].play.mockRejectedValueOnce(
+        new DOMException('User interaction required', 'NotAllowedError'),
+      );
+      return audio;
+    });
+    await player.toggle('reply', 'Hello', onError);
+    expect(player.getState('reply')).toBe('ready');
+    expect(onError).not.toHaveBeenCalled();
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    await player.toggle('reply', 'Hello', onError);
+    expect(player.getState('reply')).toBe('playing');
+    expect(synthesize).toHaveBeenCalledTimes(1);
+    expect(FakeAudio.instances[0].play).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not stay in loading indefinitely when synthesis never completes', async () => {
+    vi.useFakeTimers();
+    try {
+      synthesize.mockImplementationOnce(() => new Promise(() => {}));
+      const pending = player.toggle('reply', 'Hello', onError);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(player.getState('reply')).toBeUndefined();
+      expect((synthesize.mock.calls[0][1] as AbortSignal).aborted).toBe(true);
+      expect(onError).toHaveBeenCalledTimes(1);
+      await pending;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reports empty synthesis instead of attempting silent playback', async () => {
+    synthesize.mockResolvedValueOnce({ ...audio, audioBase64: '' });
+    await player.toggle('reply', 'Hello', onError);
+    expect(player.getState('reply')).toBeUndefined();
+    expect(FakeAudio.instances[0].play).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
   it('preserves Unicode and respects the chunk limit for text without spaces', () => {
     const text = '🎧'.repeat(2500);
     const chunks = splitSpeechText(text);

@@ -31,6 +31,14 @@ const styles = stylex.create({
     paddingBlock: 4,
     width: '100%',
   },
+  statusRow: {
+    alignItems: 'center',
+    display: 'flex',
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
   status: {
     color: cssVar.colorTextSecondary,
     fontSize: 12,
@@ -57,7 +65,7 @@ const Visualizer = ({ video }: { video: boolean }) => {
   });
   return (
     <Flexbox className={stylex.props(styles.visualizer).className} gap={8}>
-      <Flexbox horizontal align="center" gap={8}>
+      <Flexbox horizontal className={stylex.props(styles.statusRow).className}>
         <AgentAudioVisualizerBar
           audioTrack={visualizedTrack}
           barCount={5}

@@ -1,7 +1,9 @@
 export default {
   'readAloud.start': 'Read aloud',
   'readAloud.stop': 'Stop reading',
-  'readAloud.cancel': 'Cancel speech generation',
+  'readAloud.cancel': 'Generating audio… Click to cancel',
+  'readAloud.play': 'Audio ready — click to play',
+  'readAloud.timeout': 'Speech generation took too long. Try reading this reply again.',
   'readAloud.error': 'Could not play this reply. Check your Speech Output settings and try again.',
   'readAloud.notConfigured':
     'Choose a Speech Output model in Settings → Service Model to read replies aloud.',
