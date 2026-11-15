@@ -14,6 +14,7 @@ import { useChatInputStore } from '../store';
 import { type DropdownPlacement } from './context';
 import { ActionBarContext, useActionBarContext } from './context';
 import { filterChatOnlyActions } from './filterChatOnlyActions';
+import { filterRecordingActions } from './filterRecordingActions';
 
 const mapActionToItem = (actionKey: ActionKey) => {
   const Render = actionMap[actionKey];
@@ -73,11 +74,18 @@ const ActionToolbar = memo<ActionToolbarComponentProps>(
       canConfigureResource ? s.leftActions : filterChatOnlyActions(s.leftActions),
     );
 
+    const conversationActive = useChatInputStore((s) => s.conversationActive);
     const mobile = useChatInputStore((s) => s.mobile);
 
     const items = useMemo(
-      () => (mapActionsToItems(leftActions, { disableCollapse }) ?? []).concat(extraActionItems),
-      [disableCollapse, extraActionItems, leftActions],
+      () =>
+        (
+          mapActionsToItems(
+            conversationActive ? filterRecordingActions(leftActions) : leftActions,
+            { disableCollapse },
+          ) ?? []
+        ).concat(extraActionItems),
+      [conversationActive, disableCollapse, extraActionItems, leftActions],
     );
 
     // Keep an outer action size (e.g. the compact composer preset) instead of

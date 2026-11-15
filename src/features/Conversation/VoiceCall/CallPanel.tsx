@@ -16,30 +16,25 @@ import { ActionIcon, Flexbox } from '@lobehub/ui';
 import { cssVar } from '@lobehub/ui/stylex/cssVar.stylex';
 import * as stylex from '@stylexjs/stylex';
 import { type Room, Track } from 'livekit-client';
-import { Mic, MicOff, Settings2, X } from 'lucide-react';
+import { Mic, MicOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { useChatInputStore } from '@/features/ChatInput/store';
+
 import { AgentAudioVisualizerBar } from './AgentsUI/AgentAudioVisualizerBar';
-import { ConversationButton } from './ConversationButton';
 import { selectVisualizerAudioTrack } from './visualizerAudio';
 
 const styles = stylex.create({
-  floating: {
-    position: 'absolute',
-    bottom: 12,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    maxWidth: 'min(520px, 85vw)',
+  visualizer: {
     alignItems: 'center',
-    pointerEvents: 'auto',
+    paddingBlock: 12,
+    width: '100%',
   },
-  visualization: { position: 'relative', paddingInline: 32 },
-  settings: { position: 'absolute', top: 0, right: -8 },
   status: { color: cssVar.colorTextSecondary, fontSize: 12, lineHeight: '20px' },
   muted: { color: cssVar.colorError },
 });
 
-const Visualizer = ({ onSettings, video }: { onSettings: () => void; video: boolean }) => {
+const Visualizer = ({ video }: { video: boolean }) => {
   const { t } = useTranslation('chat');
   const { state, audioTrack } = useVoiceAssistant();
   const { microphoneTrack, isMicrophoneEnabled } = useLocalParticipant();
@@ -53,24 +48,14 @@ const Visualizer = ({ onSettings, video }: { onSettings: () => void; video: bool
     onlySubscribed: false,
   });
   return (
-    <Flexbox className={stylex.props(styles.floating).className} gap={8}>
-      <div className={stylex.props(styles.visualization).className}>
-        <AgentAudioVisualizerBar
-          audioTrack={visualizedTrack}
-          barCount={5}
-          size="sm"
-          state={state}
-          style={{ color: cssVar.colorPrimary }}
-        />
-        <ActionIcon
-          aria-label={t('voiceCall.settings')}
-          className={stylex.props(styles.settings).className}
-          icon={Settings2}
-          size="small"
-          title={t('voiceCall.settings')}
-          onClick={onSettings}
-        />
-      </div>
+    <Flexbox className={stylex.props(styles.visualizer).className} gap={8}>
+      <AgentAudioVisualizerBar
+        audioTrack={visualizedTrack}
+        barCount={5}
+        size="sm"
+        state={state}
+        style={{ color: cssVar.colorPrimary }}
+      />
       <span aria-live="polite" className={stylex.props(styles.status).className} role="status">
         {t(
           state === 'listening' && !isMicrophoneEnabled
@@ -89,55 +74,45 @@ const Visualizer = ({ onSettings, video }: { onSettings: () => void; video: bool
   );
 };
 
-const Footer = ({ onEnd, onError }: { onEnd: () => void; onError: (error: unknown) => void }) => {
+const Microphone = ({ onError }: { onError: (error: unknown) => void }) => {
   const { t } = useTranslation('chat');
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
+  const size = useChatInputStore((s) => s.sendButtonProps?.size ?? 36);
   const title = t(isMicrophoneEnabled ? 'voiceCall.mute' : 'voiceCall.unmute');
   return (
-    <Flexbox horizontal align="center" gap={8}>
-      <ActionIcon
-        aria-label={title}
-        aria-pressed={!isMicrophoneEnabled}
-        className={stylex.props(!isMicrophoneEnabled && styles.muted).className}
-        icon={isMicrophoneEnabled ? Mic : MicOff}
-        size={{ blockSize: 36, size: 18 }}
-        title={title}
-        variant="filled"
-        onClick={() => {
-          void localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled).catch(onError);
-        }}
-      />
-      <ConversationButton icon={X} title={t('voiceCall.end')} onClick={onEnd} />
-    </Flexbox>
+    <ActionIcon
+      aria-label={title}
+      aria-pressed={!isMicrophoneEnabled}
+      className={stylex.props(!isMicrophoneEnabled && styles.muted).className}
+      icon={isMicrophoneEnabled ? Mic : MicOff}
+      size={{ blockSize: size, borderRadius: '50%', size: size < 36 ? 16 : 18 }}
+      title={title}
+      variant="filled"
+      onClick={() => {
+        void localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled).catch(onError);
+      }}
+    />
   );
 };
 
-export const CallVisualizer = ({
-  room,
-  ...props
-}: {
-  room: Room;
-  onSettings: () => void;
-  video: boolean;
-}) => (
+export const CallVisualizer = ({ room, ...props }: { room: Room; video: boolean }) => (
   <RoomContext value={room}>
     <Visualizer {...props} />
   </RoomContext>
 );
-export const CallControls = ({
+export const CallMicrophone = ({
   room,
   ...props
 }: {
   room: Room;
-  onEnd: () => void;
   onError: (error: unknown) => void;
 }) => (
   <RoomContext value={room}>
-    <Footer {...props} />
+    <Microphone {...props} />
   </RoomContext>
 );
 
-/** Playback stays mounted independently of the floating visualizer or settings dialog. */
+/** Playback stays mounted independently of the visualizer and composer action. */
 export const CallAudio = ({ room }: { room: Room }) => {
   const { t } = useTranslation('chat');
   return (

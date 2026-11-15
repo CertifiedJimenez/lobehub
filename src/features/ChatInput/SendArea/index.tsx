@@ -3,6 +3,7 @@ import isEqual from 'fast-deep-equal';
 import { memo, useMemo } from 'react';
 
 import { fileChatSelectors, useFileStore } from '@/store/file';
+import { useServerConfigStore } from '@/store/serverConfig';
 
 import { type ActionKey } from '../ActionBar/config';
 import { actionMap } from '../ActionBar/config';
@@ -35,12 +36,12 @@ const SendArea = memo<SendAreaProps>(({ hideContextWindow = true }) => {
   const audioInputActive = activeAudioInputMode !== undefined;
   const markdown = useChatInputStore((s) => s.markdownContent);
   const conversationActive = useChatInputStore((s) => s.conversationActive);
-  const generating = useChatInputStore((s) => s.sendButtonProps?.generating);
   const uploadKey = useChatInputUploadKey();
   const hasFiles = useFileStore(fileChatSelectors.chatUploadFileListHasItem(uploadKey));
-  const supportsConversation = canShowControls && rightActions.includes('conversation');
+  const configured = useServerConfigStore((s) => s.serverConfig.livekitConfigured);
+  const supportsConversation =
+    Boolean(configured) && canShowControls && rightActions.includes('conversation');
   const hasContent = Boolean(markdown.trim()) || hasFiles;
-  const showSend = !supportsConversation || hasContent || (generating && !conversationActive);
 
   const items = useMemo(
     () =>
@@ -64,8 +65,19 @@ const SendArea = memo<SendAreaProps>(({ hideContextWindow = true }) => {
     /** The model label must yield space before the footer clips Send on narrow panels. */
     <Flexbox horizontal align={'center'} flex={'0 1 auto'} gap={12} style={{ minWidth: 0 }}>
       {items}
-      {supportsConversation && <ConversationAction showStart={!audioInputActive && !showSend} />}
-      {!audioInputActive && showSend && <SendButton />}
+      {supportsConversation ? (
+        <ConversationAction>
+          {(voiceControl) => (
+            <SendButton
+              hasContent={hasContent}
+              hidden={audioInputActive}
+              voiceControl={voiceControl}
+            />
+          )}
+        </ConversationAction>
+      ) : (
+        !audioInputActive && <SendButton />
+      )}
     </Flexbox>
   );
 });

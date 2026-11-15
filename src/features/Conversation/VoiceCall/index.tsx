@@ -1,11 +1,10 @@
 'use client';
 
-import { Flexbox } from '@lobehub/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router';
 
+import type { VoiceComposerControl } from '@/features/ChatInput/SendArea/presentation';
 import { useChatInputStore } from '@/features/ChatInput/store';
 import { useVoiceOverlayTarget } from '@/features/ChatInput/voiceOverlayContext';
 import { useMediaUploadAbility } from '@/hooks/useMediaUploadAbility';
@@ -22,17 +21,20 @@ import { useUserStore } from '@/store/user';
 import { settingsSelectors } from '@/store/user/selectors';
 
 import { useConversationStore, useConversationStoreApi } from '../store';
-import { CallAudio, CallControls, CallVisualizer } from './CallPanel';
+import { CallAudio, CallMicrophone, CallVisualizer } from './CallPanel';
 import { VoiceCallClient } from './client';
-import { ConversationButton } from './ConversationButton';
+import { notifyVoiceCallError } from './notifyError';
 import { getVoiceReply } from './reply';
 import { isVoiceCallSpeechConfigured } from './speechModels';
 import { uploadTalkFrame } from './uploadFrame';
-import { createVoiceSettingsModal } from './VoiceSettingsModal';
 import { waitForVoiceReply } from './waitForReply';
 import { VoiceWorkerUnavailableError } from './waitForWorker';
 
-export const VoiceCall = ({ showStart = true }: { showStart?: boolean }) => {
+export const VoiceCall = ({
+  children,
+}: {
+  children: (control: VoiceComposerControl) => ReactNode;
+}) => {
   const overlayTarget = useVoiceOverlayTarget();
   const setConversationActive = useChatInputStore((s) => s.setConversationActive);
   const configured = useServerConfigStore((s) => s.serverConfig.livekitConfigured);
@@ -44,14 +46,12 @@ export const VoiceCall = ({ showStart = true }: { showStart?: boolean }) => {
   const context = useConversationStore((s) => s.context);
   const writable = useConversationStore((s) => s.composerTarget.writable);
   const store = useConversationStoreApi();
-  const { t } = useTranslation('chat');
   const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'working'>('idle');
   const [video, setVideo] = useState(false);
   const [activeClient, setActiveClient] = useState<VoiceCallClient | undefined>(undefined);
   const model = useAgentStore(agentByIdSelectors.getAgentModelById(context.agentId));
   const provider = useAgentStore(agentByIdSelectors.getAgentModelProviderById(context.agentId));
   const { canUploadImage } = useMediaUploadAbility(model, provider, context.agentId);
-  const [error, setError] = useState<'error' | 'workerUnavailable' | undefined>();
   const call = useRef<{ client: VoiceCallClient; roomName?: string } | undefined>(undefined);
 
   const end = useCallback(async () => {
@@ -81,14 +81,13 @@ export const VoiceCall = ({ showStart = true }: { showStart?: boolean }) => {
       return;
     }
     if (call.current || !context.topicId || !writable) return;
-    setError(undefined);
     setStatus('connecting');
     const client = new VoiceCallClient({
       onDisconnected: (unexpected) => {
-        if (unexpected) setError((previous) => previous ?? 'error');
+        if (unexpected) notifyVoiceCallError();
         void end();
       },
-      onError: () => setError('error'),
+      onError: notifyVoiceCallError,
       onSpeech: handleConversationSpeech,
       onWorking: (working) => setStatus(working ? 'working' : 'connected'),
       onTurn: async (text, signal) => {
@@ -141,7 +140,10 @@ export const VoiceCall = ({ showStart = true }: { showStart?: boolean }) => {
       if (call.current === current) setStatus('connected');
     } catch (cause) {
       if (call.current === current) {
-        setError(cause instanceof VoiceWorkerUnavailableError ? 'workerUnavailable' : 'error');
+        notifyVoiceCallError(
+          cause,
+          cause instanceof VoiceWorkerUnavailableError ? 'workerUnavailable' : 'error',
+        );
         await end();
       }
     }
@@ -166,39 +168,23 @@ export const VoiceCall = ({ showStart = true }: { showStart?: boolean }) => {
   }, [search, context.topicId, writable, start, setSearch]);
   const active = status !== 'idle';
 
-  const openSettings = () =>
-    createVoiceSettingsModal({
-      model,
-      onApply: async (next) => {
-        if (activeClient) await activeClient.configure(next);
-      },
-    });
   const visualizer = activeClient ? (
-    <CallVisualizer room={activeClient.room} video={video} onSettings={openSettings} />
+    <CallVisualizer room={activeClient.room} video={video} />
   ) : null;
   if (!configured) return null;
 
   return (
     <>
-      <Flexbox horizontal align="center" gap={4}>
-        {activeClient && active ? (
-          <CallControls
-            room={activeClient.room}
-            onEnd={() => void end()}
-            onError={() => setError('error')}
-          />
-        ) : (
-          showStart && (
-            <ConversationButton
-              disabled={!context.topicId || !writable}
-              title={t('voiceCall.start')}
-              onClick={() => void start()}
-            />
-          )
-        )}
-        {activeClient && <CallAudio room={activeClient.room} />}
-        {error && <span role="alert">{t(`voiceCall.${error}`)}</span>}
-      </Flexbox>
+      {children({
+        active,
+        disabled: !context.topicId || !writable,
+        microphone:
+          activeClient && active ? (
+            <CallMicrophone room={activeClient.room} onError={notifyVoiceCallError} />
+          ) : undefined,
+        onClick: () => void (active ? end() : start()),
+      })}
+      {activeClient && <CallAudio room={activeClient.room} />}
       {overlayTarget ? createPortal(visualizer, overlayTarget) : visualizer}
     </>
   );

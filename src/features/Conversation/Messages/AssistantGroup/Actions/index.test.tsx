@@ -52,7 +52,7 @@ const renderBar = (props: { contentId?: string }) =>
   render(<GroupActionsBar data={data} id="group-1" {...props} />);
 
 describe('message action defaults', () => {
-  it('does not expose the retired text-to-speech action', () => {
+  it('offers read-aloud directly on assistant replies, not user prompts', () => {
     render(
       <>
         <AssistantActionsBar
@@ -66,9 +66,9 @@ describe('message action defaults', () => {
       </>,
     );
 
-    for (const bar of screen.getAllByTestId('action-bar')) {
-      expect(bar.getAttribute('data-menu')?.split(',')).not.toContain('tts');
-    }
+    const [assistant, user] = screen.getAllByTestId('action-bar');
+    expect(assistant.getAttribute('data-bar')?.split(',')).toContain('tts');
+    expect(user.getAttribute('data-bar')?.split(',')).not.toContain('tts');
   });
 });
 
@@ -103,6 +103,7 @@ describe('GroupActionsBar — hetero (assistantGroup) forward/select gating', ()
     expect(menu.split(',')).toContain('select');
     expect(menu.split(',')).toContain('share');
     expect(menu.split(',')).toContain('edit');
+    expect(bar.getAttribute('data-bar')?.split(',')).toContain('tts');
     expect(bar).toHaveAttribute('data-has-leading', 'true');
     expect(screen.getByTestId('reaction-picker')).toBeInTheDocument();
   });

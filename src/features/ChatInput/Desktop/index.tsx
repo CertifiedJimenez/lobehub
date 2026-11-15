@@ -38,6 +38,7 @@ import { VoiceOverlayContext } from '../voiceOverlayContext';
 import ContextContainer from './ContextContainer';
 
 const styles = stylex.create({
+  voiceRow: { display: { 'default': 'block', ':empty': 'none' }, flexShrink: 0 },
   footnote: { fontSize: '10px' },
   fullscreen: {
     position: 'absolute',
@@ -239,10 +240,7 @@ const DesktopChatInput = memo<DesktopChatInputProps>(
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          <div
-            ref={setVoiceOverlayTarget}
-            style={{ position: 'relative', height: 0, zIndex: 10 }}
-          />
+          <div className={stylex.props(styles.voiceRow).className} ref={setVoiceOverlayTarget} />
           <ChatInput
             data-testid="chat-input"
             defaultHeight={chatInputHeight || 32}

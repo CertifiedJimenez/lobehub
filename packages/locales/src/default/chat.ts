@@ -1,4 +1,11 @@
 export default {
+  'readAloud.start': 'Read aloud',
+  'readAloud.stop': 'Stop reading',
+  'readAloud.cancel': 'Cancel speech generation',
+  'readAloud.error': 'Could not play this reply. Check your Speech Output settings and try again.',
+  'readAloud.notConfigured':
+    'Choose a Speech Output model in Settings → Service Model to read replies aloud.',
+
   'voiceCall.voiceIdPlaceholder': 'Enter a supported voice or clone ID',
   'voiceCall.speechModel': 'Speech model',
   'voiceCall.speechModelDescription':

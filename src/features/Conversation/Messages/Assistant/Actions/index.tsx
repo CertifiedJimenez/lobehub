@@ -10,8 +10,8 @@ import {
   type MessageActionSlot,
 } from '../../components/MessageActionBar';
 
-const DEFAULT_BAR_WITH_TOOLS: MessageActionSlot[] = ['delAndRegenerate', 'copy'];
-const DEFAULT_BAR: MessageActionSlot[] = ['edit', 'copy'];
+const DEFAULT_BAR_WITH_TOOLS: MessageActionSlot[] = ['delAndRegenerate', 'copy', 'tts'];
+const DEFAULT_BAR: MessageActionSlot[] = ['edit', 'copy', 'tts'];
 // The developer-facing actions live one level down, under Advanced: each is
 // gated (dev mode, Labs) and rare, so flat they were noise in the menu that
 // every user opens. It sits with the other utilities rather than after Delete —

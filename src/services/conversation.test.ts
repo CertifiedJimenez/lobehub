@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleConversationSpeech } from './conversation';
+import { synthesizeSpeech } from './tts';
 
 const mocks = vi.hoisted(() => ({
   asr: vi.fn(),
@@ -62,6 +63,18 @@ describe('native conversation speech settings', () => {
       model: 'different-model',
       voice: undefined,
     });
+  });
+
+  it('reads replies through the same selected model and voice without starting a call', async () => {
+    mocks.tts.mockResolvedValue({ audioBase64: 'audio', format: 'mp3', mimeType: 'audio/mpeg' });
+    const result = await synthesizeSpeech('Read my reply', new AbortController().signal);
+    expect(result.audioBase64).toBe('audio');
+    expect(mocks.tts.mock.calls[0][0]).toMatchObject({
+      model: 's2-pro',
+      provider: 'fishaudio',
+      voice: 'my-clone',
+    });
+    expect(mocks.asr).not.toHaveBeenCalled();
   });
 
   it('uses the same transcription selection as voice messages', async () => {

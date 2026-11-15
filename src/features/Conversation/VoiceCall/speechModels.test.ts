@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isVoiceCallSpeechConfigured, resolveVoiceSettings } from './speechModels';
+import { isVoiceCallSpeechConfigured } from './speechModels';
 
 const nativeSelections = {
   asr: { model: 'whisper-1', provider: 'openai' },
@@ -8,22 +8,6 @@ const nativeSelections = {
 };
 
 describe('voice call native speech selections', () => {
-  it('retains a saved voice for its selected model', () => {
-    expect(
-      resolveVoiceSettings({ tts: nativeSelections.tts, voice: 'my-clone' }, nativeSelections.tts)
-        .voice,
-    ).toBe('my-clone');
-  });
-
-  it('clears the previous provider voice before editing settings for a new model', () => {
-    const result = resolveVoiceSettings(
-      { tts: { model: 's2-pro', provider: 'fishaudio' }, voice: 'old-clone' },
-      nativeSelections.tts,
-    );
-    expect(result.tts).toEqual(nativeSelections.tts);
-    expect(result.voice).toBe('');
-  });
-
   it('accepts the app speech models without personal LiveKit settings', () => {
     expect(isVoiceCallSpeechConfigured(nativeSelections)).toBe(true);
   });

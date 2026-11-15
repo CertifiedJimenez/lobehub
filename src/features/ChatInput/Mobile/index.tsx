@@ -20,6 +20,7 @@ import { VoiceOverlayContext } from '../voiceOverlayContext';
 const FilePreview = dynamic(() => import('./FilePreview'), { ssr: false });
 
 const styles = stylex.create({
+  voiceRow: { display: { 'default': 'block', ':empty': 'none' }, flexShrink: 0 },
   fullscreen: {
     position: 'absolute',
     zIndex: 100,
@@ -51,7 +52,7 @@ const DesktopChatInput = memo(() => {
         paddingBlock={'0 12px'}
         paddingInline={12}
       >
-        <div ref={setOverlay} style={{ position: 'relative', height: 0, zIndex: 10 }} />
+        <div className={stylex.props(styles.voiceRow).className} ref={setOverlay} />
         <ChatInput
           fullscreen={expand}
           slashMenuRef={slashMenuRef}

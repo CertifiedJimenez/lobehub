@@ -8,6 +8,8 @@ import { lambdaClient } from '@/libs/trpc/client';
 import { useUserStore } from '@/store/user';
 import { settingsSelectors } from '@/store/user/selectors';
 
+import { synthesizeSpeech } from './tts';
+
 /** Reuses authenticated provider routes; no provider credentials enter a LiveKit room. */
 export const handleConversationSpeech = async (
   request: SpeechRequest,
@@ -36,18 +38,7 @@ export const handleConversationSpeech = async (
     );
     return { requestId: request.requestId, ok: true, text: result.text };
   }
-  const result = await lambdaClient.tts.synthesize.mutate(
-    {
-      input: request.text,
-      model: ref.model,
-      provider: ref.provider,
-      voice:
-        config.tts.model === ref.model && config.tts.provider === ref.provider
-          ? config.voice || undefined
-          : undefined,
-    },
-    { signal },
-  );
+  const result = await synthesizeSpeech(request.text, signal);
   if (result.format !== 'mp3' && result.format !== 'opus' && result.format !== 'aac')
     throw new Error('Unsupported speech format');
   return {
