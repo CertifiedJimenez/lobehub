@@ -12,6 +12,12 @@ vi.mock('@/database/core/db-adaptor', () => ({
 }));
 
 const textToSpeechMock = vi.fn();
+vi.mock('@/server/services/file', () => ({
+  FileService: vi.fn(function () {
+    return { listFileKeys: vi.fn(async () => []), uploadBuffer: vi.fn(async () => ({})) };
+  }),
+}));
+
 vi.mock('@/server/modules/ModelRuntime', () => ({
   initModelRuntimeFromDB: vi.fn(async () => ({ textToSpeech: textToSpeechMock })),
 }));

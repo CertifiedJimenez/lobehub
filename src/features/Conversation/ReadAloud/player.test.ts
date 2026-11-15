@@ -38,6 +38,15 @@ afterEach(() => {
 });
 
 describe('reply read-aloud', () => {
+  it('stops only the conversation that owns the playing clip', async () => {
+    await player.toggle('reply', 'Hello', onError, 'conversation-a');
+    player.stopScope('conversation-b');
+    expect(player.getState('reply')).toBe('playing');
+    player.stopScope('conversation-a');
+    expect(player.getState('reply')).toBeUndefined();
+    expect(FakeAudio.instances[0].pause).toHaveBeenCalled();
+  });
+
   it('shows loading then playing, and a second click stops playback and releases audio', async () => {
     const states: (string | undefined)[] = [];
     const unsubscribe = player.subscribe(() => states.push(player.getState('reply')));

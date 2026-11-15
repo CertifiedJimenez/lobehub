@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('@/server/services/file', () => ({
+  FileService: vi.fn(function () {
+    return { listFileKeys: vi.fn(async () => []), uploadBuffer: vi.fn(async () => ({})) };
+  }),
+}));
+
 vi.mock('@/server/modules/ModelRuntime', () => ({ initModelRuntimeFromDB: vi.fn() }));
 
 const { findTTSModelCard, invalidProviderAPIKeyMessage, resolveTTSModelRef, TTSService } =

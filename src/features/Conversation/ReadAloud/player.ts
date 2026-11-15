@@ -33,6 +33,7 @@ export class ReadAloudPlayer {
     audio: HTMLAudioElement;
     id: string;
     play: () => Promise<void>;
+    scope?: string;
     state: PlaybackState;
     url?: string;
   };
@@ -66,7 +67,11 @@ export class ReadAloudPlayer {
     this.emit();
   };
 
-  toggle = async (id: string, text: string, onError: (error: unknown) => void) => {
+  stopScope = (scope: string) => {
+    if (this.current?.scope === scope) this.stop();
+  };
+
+  toggle = async (id: string, text: string, onError: (error: unknown) => void, scope?: string) => {
     if (this.current?.id === id) {
       // Retry from the user's click without another request or losing the generated audio.
       if (this.current.state === 'ready') return this.current.play();
@@ -81,6 +86,7 @@ export class ReadAloudPlayer {
       abort: new AbortController(),
       audio: new Audio(),
       id,
+      scope,
       play: async () => {},
       state: 'loading' as PlaybackState,
       url: undefined as string | undefined,

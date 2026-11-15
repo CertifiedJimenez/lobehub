@@ -754,6 +754,21 @@ describe('FileS3', () => {
   });
 
   describe('uploadBuffer', () => {
+    it('does not publish cached speech when public-read uploads are enabled', async () => {
+      const s3 = new FileS3();
+      mockS3ClientSend.mockResolvedValue({});
+      await s3.uploadBuffer(
+        'tts-cache/private.mp3',
+        Buffer.from('audio'),
+        'audio/mpeg',
+        undefined,
+        { private: true },
+      );
+      expect(PutObjectCommand).toHaveBeenCalledWith(
+        expect.objectContaining({ ACL: undefined, ContentType: 'audio/mpeg' }),
+      );
+    });
+
     it('should upload buffer with correct parameters', async () => {
       const s3 = new FileS3();
       mockS3ClientSend.mockResolvedValue({});

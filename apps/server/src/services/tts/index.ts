@@ -10,6 +10,9 @@ import { DEFAULT_MODEL_PROVIDER_LIST } from 'model-bank/modelProviders';
 import { AiModelModel } from '@/database/models/aiModel';
 import type { LobeChatDatabase } from '@/database/type';
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
+import { FileService } from '@/server/services/file';
+
+import { SpeechAudioCache } from './SpeechAudioCache';
 
 /**
  * The audio goes back inside one buffered response (≈4.5MB on serverless deploys), as
@@ -187,6 +190,7 @@ export const resolveTTSModelRef = (
  * hooks reserve, settle and release the spend.
  */
 export class TTSService {
+  private fileService?: FileService;
   constructor(
     private readonly db: LobeChatDatabase,
     private readonly userId: string,
@@ -245,18 +249,32 @@ export class TTSService {
       throw error;
     }
 
+    const voiceIsDefault = request.voice === undefined && savedVoice === undefined;
+    const defaults = Object.fromEntries(
+      Object.entries(card?.parameters ?? {}).map(([key, value]) => [key, value.default]),
+    );
+    const cache = new SpeechAudioCache(
+      () => (this.fileService ??= new FileService(this.db, this.userId, this.workspaceId)),
+      this.userId,
+      this.workspaceId,
+    );
+    return cache.synthesize(
+      { input, model, params: { ...defaults, ...params }, provider, voice, voiceIsDefault },
+      () => this.generate(runtime, { input, model, params, voice, voiceIsDefault }, provider),
+    );
+  }
+
+  private async generate(
+    runtime: ModelRuntime,
+    payload: Parameters<ModelRuntime['textToSpeech']>[0],
+    provider: string,
+  ): Promise<TTSSynthesizeResult> {
     let result: Awaited<ReturnType<typeof runtime.textToSpeech>>;
     try {
-      result = await runtime.textToSpeech(
-        {
-          input,
-          model,
-          params,
-          voice,
-          voiceIsDefault: request.voice === undefined && savedVoice === undefined,
-        },
-        { metadata: { trigger: RequestTrigger.Tts }, user: this.userId },
-      );
+      result = await runtime.textToSpeech(payload, {
+        metadata: { trigger: RequestTrigger.Tts },
+        user: this.userId,
+      });
     } catch (error) {
       // Budget refusals and other server-side guards already carry their own status.
       if (error instanceof Error && error.name === 'TRPCError') throw error;
