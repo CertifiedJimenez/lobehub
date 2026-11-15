@@ -22,15 +22,21 @@ import { useTranslation } from 'react-i18next';
 import { useChatInputStore } from '@/features/ChatInput/store';
 
 import { AgentAudioVisualizerBar } from './AgentsUI/AgentAudioVisualizerBar';
+import { getVoiceStatusKey } from './status';
 import { selectVisualizerAudioTrack } from './visualizerAudio';
 
 const styles = stylex.create({
   visualizer: {
     alignItems: 'center',
-    paddingBlock: 12,
+    paddingBlock: 4,
     width: '100%',
   },
-  status: { color: cssVar.colorTextSecondary, fontSize: 12, lineHeight: '20px' },
+  status: {
+    color: cssVar.colorTextSecondary,
+    fontSize: 12,
+    lineHeight: '20px',
+    whiteSpace: 'nowrap',
+  },
   muted: { color: cssVar.colorError },
 });
 
@@ -38,6 +44,8 @@ const Visualizer = ({ video }: { video: boolean }) => {
   const { t } = useTranslation('chat');
   const { state, audioTrack } = useVoiceAssistant();
   const { microphoneTrack, isMicrophoneEnabled } = useLocalParticipant();
+  const generating = useChatInputStore((s) => s.sendButtonProps?.generating);
+  const activityState = generating ? 'thinking' : state;
   const visualizedTrack = selectVisualizerAudioTrack({
     state,
     microphoneEnabled: isMicrophoneEnabled,
@@ -49,20 +57,18 @@ const Visualizer = ({ video }: { video: boolean }) => {
   });
   return (
     <Flexbox className={stylex.props(styles.visualizer).className} gap={8}>
-      <AgentAudioVisualizerBar
-        audioTrack={visualizedTrack}
-        barCount={5}
-        size="sm"
-        state={state}
-        style={{ color: cssVar.colorPrimary }}
-      />
-      <span aria-live="polite" className={stylex.props(styles.status).className} role="status">
-        {t(
-          state === 'listening' && !isMicrophoneEnabled
-            ? 'voiceCall.muted'
-            : `voiceCall.agentState.${state}`,
-        )}
-      </span>
+      <Flexbox horizontal align="center" gap={8}>
+        <AgentAudioVisualizerBar
+          audioTrack={visualizedTrack}
+          barCount={5}
+          size="icon"
+          state={state}
+          style={{ color: cssVar.colorPrimary }}
+        />
+        <span aria-live="polite" className={stylex.props(styles.status).className} role="status">
+          {t(getVoiceStatusKey(activityState, isMicrophoneEnabled))}
+        </span>
+      </Flexbox>
       {video && (
         <TrackLoop tracks={tracks}>
           <VideoTrack
