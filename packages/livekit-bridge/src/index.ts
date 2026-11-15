@@ -11,8 +11,9 @@ export const voiceTurnSchema = z.object({
   text: z.string().trim().min(1).max(4000),
 });
 export const voiceCancelSchema = voiceTurnSchema.pick({ requestId: true });
-export const voiceResultSchema = z.discriminatedUnion('ok', [
+export const voiceResultSchema = z.union([
   z.object({ ok: z.literal(true), requestId: z.uuid(), text: z.string().min(1).max(100_000) }),
+  z.object({ ok: z.literal(true), requestId: z.uuid(), done: z.literal(true) }),
   z.object({ ok: z.literal(false), requestId: z.uuid() }),
 ]);
 /** Personal media preferences; models and credentials remain in LobeHub. */

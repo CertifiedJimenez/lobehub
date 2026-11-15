@@ -5,6 +5,7 @@ import { withTimeout } from 'es-toolkit';
 import { TTS_AUDIO_FORMATS, TTS_AUDIO_MIME_TYPES, type TTSAudioFormat } from 'model-bank';
 
 import type { FileService } from '@/server/services/file';
+import { after } from '@/server/utils/scheduleAfterResponse';
 
 import type { TTSSynthesizeResult } from './index';
 
@@ -106,18 +107,31 @@ export class SpeechAudioCache {
       const { usage: _, ...audio } = await inFlight;
       return audio;
     }
+    let retaining = false;
+    const release = () => {
+      if (pending.get(key) === request) pending.delete(key);
+    };
     const request = (async () => {
       const cached = await this.read(digest);
       if (cached) return cached;
       const result = await generate();
-      await this.write(digest, result);
+      retaining = true;
+      // Let playback start while the host retains/prunes the private clip. Keep
+      // coalescing requests until persistence finishes so replay does not rebill.
+      after(async () => {
+        try {
+          await this.write(digest, result);
+        } finally {
+          release();
+        }
+      });
       return result;
     })();
     pending.set(key, request);
     try {
       return await request;
     } finally {
-      if (pending.get(key) === request) pending.delete(key);
+      if (!retaining) release();
     }
   }
 }

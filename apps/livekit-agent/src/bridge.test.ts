@@ -26,16 +26,56 @@ const setup = () => {
   const bridge = new LobeHubBridge(room as unknown as Room, 'browser');
   const respond = (requestId: string, identity = 'browser') => {
     handlers.get(VOICE_RESULT_TOPIC)!(
-      (async function* () {
-        yield JSON.stringify({ ok: true, requestId, text: 'Existing harness reply' });
-      })(),
+      Object.assign(
+        (async function* () {
+          yield JSON.stringify({ ok: true, requestId, text: 'Existing harness reply' }) + '\n';
+          yield JSON.stringify({ ok: true, requestId, done: true }) + '\n';
+        })(),
+        { close: vi.fn().mockResolvedValue(undefined) },
+      ),
       { identity },
     );
   };
-  return { bridge, performRpc, respond };
+  return { bridge, performRpc, respond, handlers };
 };
 
 describe('LobeHubBridge', () => {
+  it('yields the first text while the reply stream is still open', async () => {
+    const { bridge, performRpc, handlers } = setup();
+    const reader = bridge.run('Hello').getReader();
+    const { requestId } = JSON.parse(performRpc.mock.calls[0]![0].payload);
+    let finish!: () => void;
+    const remaining = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    handlers.get(VOICE_RESULT_TOPIC)!(
+      Object.assign(
+        (async function* () {
+          const frame = JSON.stringify({ ok: true, requestId, text: 'First sentence.' }) + '\n';
+          yield frame.slice(0, 12);
+          yield frame.slice(12);
+          await remaining;
+          yield JSON.stringify({ ok: true, requestId, text: ' Second sentence.' }) + '\n';
+          yield JSON.stringify({ ok: true, requestId, done: true }) + '\n';
+        })(),
+        { close: vi.fn().mockResolvedValue(undefined) },
+      ),
+      { identity: 'browser' },
+    );
+    try {
+      await expect(
+        Promise.race([
+          reader.read(),
+          new Promise((resolve) => setTimeout(() => resolve('blocked'), 50)),
+        ]),
+      ).resolves.toEqual({ done: false, value: 'First sentence.' });
+    } finally {
+      finish();
+    }
+    await expect(reader.read()).resolves.toEqual({ done: false, value: ' Second sentence.' });
+    await expect(reader.read()).resolves.toMatchObject({ done: true });
+    bridge.close();
+  });
   it('delegates to the browser runtime and speaks its reply without a second LLM', async () => {
     const { bridge, performRpc, respond } = setup();
     const reader = bridge.run('Hello').getReader();

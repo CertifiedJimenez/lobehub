@@ -10,6 +10,7 @@ import {
   VOICE_RESULT_TOPIC,
   VOICE_TURN_METHOD,
   voiceCancelSchema,
+  type VoiceResult,
   voiceTurnSchema,
 } from '@lobechat/livekit-bridge';
 import { DisconnectReason, ParticipantKind, Room, RoomEvent, RpcError } from 'livekit-client';
@@ -20,14 +21,18 @@ interface VoiceCallOptions {
   onDisconnected: (unexpected: boolean) => void;
   onError: (error: unknown) => void;
   onSpeech: (request: SpeechRequest, signal: AbortSignal) => Promise<SpeechResponse>;
-  onTurn: (text: string, signal: AbortSignal) => Promise<string>;
+  onTurn: (
+    text: string,
+    signal: AbortSignal,
+    onText: (text: string) => Promise<void>,
+  ) => Promise<void>;
   onWorking: (working: boolean) => void;
 }
 
 /** One room owns its microphone, remote audio, and cancellable agent turn. */
 export class VoiceCallClient {
   readonly room = new Room({ adaptiveStream: true, dynacast: true });
-  private active?: { controller: AbortController; requestId: string };
+  private active?: { controller: AbortController; requestId: string; done: Promise<void> };
   private closed = false;
   private readonly speech = new Set<AbortController>();
   private readonly connectionController = new AbortController();
@@ -80,18 +85,23 @@ export class VoiceCallClient {
     this.room.registerRpcMethod(VOICE_TURN_METHOD, async ({ callerIdentity, payload }) => {
       assertWorker(callerIdentity);
       const { requestId, text } = voiceTurnSchema.parse(JSON.parse(payload));
+      if (this.active?.controller.signal.aborted) await this.active.done;
       if (this.active) throw new RpcError(1501, 'An agent turn is already running');
       const controller = new AbortController();
-      this.active = { controller, requestId };
+      const active = { controller, requestId, done: Promise.resolve() };
+      this.active = active;
       this.options.onWorking(true);
       // Acknowledge immediately: tools/approvals can take longer than an RPC timeout.
-      void this.runTurn(requestId, text, callerIdentity, controller);
+      active.done = this.runTurn(requestId, text, callerIdentity, controller);
       return 'accepted';
     });
     this.room.registerRpcMethod(VOICE_CANCEL_METHOD, async ({ callerIdentity, payload }) => {
       assertWorker(callerIdentity);
       const { requestId } = voiceCancelSchema.parse(JSON.parse(payload));
-      if (this.active?.requestId === requestId) this.active.controller.abort();
+      if (this.active?.requestId === requestId) {
+        this.active.controller.abort();
+        await this.active.done;
+      }
       return 'cancelled';
     });
   }
@@ -102,30 +112,33 @@ export class VoiceCallClient {
     destination: string,
     controller: AbortController,
   ) {
-    let result;
+    let writer: Awaited<ReturnType<Room['localParticipant']['streamText']>> | undefined;
     try {
-      const reply = await this.options.onTurn(text, controller.signal);
-      controller.signal.throwIfAborted();
-      result = { ok: true, requestId, text: reply };
+      writer = await this.room.localParticipant.streamText({
+        destinationIdentities: [destination],
+        topic: VOICE_RESULT_TOPIC,
+        attributes: { requestId },
+      });
+      const write = async (result: VoiceResult) => {
+        controller.signal.throwIfAborted();
+        await writer!.write(JSON.stringify(result) + '\n');
+      };
+      await this.options.onTurn(text, controller.signal, (chunk) =>
+        write({ ok: true, requestId, text: chunk }),
+      );
+      await write({ ok: true, requestId, done: true });
     } catch (error) {
-      if (controller.signal.aborted || this.closed) return;
-      this.options.onError(error);
-      // Never send raw application/provider errors to the speech worker.
-      result = { ok: false, requestId };
+      if (!controller.signal.aborted && !this.closed) {
+        this.options.onError(error);
+        // Provider/application errors are shown locally, never spoken aloud.
+        await writer?.write(JSON.stringify({ ok: false, requestId }) + '\n').catch(() => {});
+      }
     } finally {
+      await writer?.close().catch(() => {});
       if (this.active?.requestId === requestId) {
         this.active = undefined;
         if (!this.closed) this.options.onWorking(false);
       }
-    }
-    if (this.closed) return;
-    try {
-      await this.room.localParticipant.sendText(JSON.stringify(result), {
-        destinationIdentities: [destination],
-        topic: VOICE_RESULT_TOPIC,
-      });
-    } catch (error) {
-      if (!this.closed) this.options.onError(error);
     }
   }
 

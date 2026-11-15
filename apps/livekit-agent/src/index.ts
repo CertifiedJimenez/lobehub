@@ -45,7 +45,7 @@ export default defineAgent({
       turnHandling: {
         turnDetection: 'vad',
         preemptiveGeneration: { enabled: false },
-        endpointing: { minDelay: config.silenceMs / 1000 },
+        endpointing: { minDelay: config.silenceMs },
       },
     });
     const agent = voice.Agent.create({

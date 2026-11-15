@@ -20,7 +20,12 @@ import {
 export class LobeHubBridge {
   private readonly pending = new Map<
     string,
-    { resolve: (text: string) => void; reject: (error: Error) => void }
+    {
+      enqueue: (text: string) => void;
+      resolve: () => void;
+      reject: (error: Error) => void;
+      closeReader?: () => Promise<void>;
+    }
   >();
 
   private readonly speechPending = new Map<
@@ -33,21 +38,46 @@ export class LobeHubBridge {
     private readonly identity: string,
   ) {
     room.registerTextStreamHandler(VOICE_RESULT_TOPIC, (reader, participant) => {
-      if (participant.identity !== identity) return;
+      if (participant.identity !== identity) {
+        void reader.close();
+        return;
+      }
+      let requestId: string | undefined = reader.info?.attributes?.requestId;
       void (async () => {
-        let text = '';
+        let buffer = '';
+        let size = 0;
+        let spoken = 0;
+        let completed = false;
+        // LiveKit chunks are transport boundaries, not JSON boundaries. A single
+        // text stream carries newline-delimited text/completion/error frames.
         for await (const chunk of reader) {
-          text += chunk;
-          if (text.length > 110_000) throw new Error('Voice reply is too large');
+          size += chunk.length;
+          if (size > 2_000_000) throw new Error('Voice reply is too large');
+          buffer += chunk;
+          let newline: number;
+          while ((newline = buffer.indexOf('\n')) !== -1) {
+            const result = voiceResultSchema.parse(JSON.parse(buffer.slice(0, newline)));
+            buffer = buffer.slice(newline + 1);
+            if (requestId && requestId !== result.requestId)
+              throw new Error('Mismatched voice reply');
+            requestId = result.requestId;
+            const pending = this.pending.get(requestId);
+            if (!pending) return;
+            pending.closeReader = () => reader.close();
+            if (completed) throw new Error('Voice reply already completed');
+            if (!result.ok) throw new Error('The LobeHub agent turn failed');
+            if ('text' in result) {
+              spoken += result.text.length;
+              if (spoken > 100_000) throw new Error('Voice reply is too large');
+              pending.enqueue(result.text);
+            } else completed = true;
+          }
         }
-        const result = voiceResultSchema.parse(JSON.parse(text));
-        const pending = this.pending.get(result.requestId);
-        if (!pending) return;
-        if (result.ok) pending.resolve(result.text);
-        else pending.reject(new Error('The LobeHub agent turn failed'));
+        if (!completed || buffer) throw new Error('Incomplete voice reply');
+        if (requestId) this.pending.get(requestId)?.resolve();
       })().catch(() => {
-        for (const pending of this.pending.values())
-          pending.reject(new Error('Invalid voice reply'));
+        if (requestId)
+          this.pending.get(requestId)?.reject(new Error('Invalid or failed voice reply'));
       });
     });
     room.registerTextStreamHandler(SPEECH_RESPONSE_TOPIC, (reader, participant) => {
@@ -119,8 +149,14 @@ export class LobeHubBridge {
     };
     return new ReadableStream<string>({
       start: (controller) => {
-        const result = new Promise<string>((resolve, reject) => {
-          this.pending.set(requestId, { resolve, reject });
+        const result = new Promise<void>((resolve, reject) => {
+          this.pending.set(requestId, {
+            enqueue: (chunk) => {
+              if (!cancelled) controller.enqueue(chunk);
+            },
+            resolve,
+            reject,
+          });
           timer = setTimeout(() => {
             cancelTurn();
             reject(new Error('The agent turn timed out'));
@@ -143,11 +179,8 @@ export class LobeHubBridge {
         })();
         void result
           .then(
-            (reply) => {
-              if (!cancelled) {
-                controller.enqueue(reply);
-                controller.close();
-              }
+            () => {
+              if (!cancelled) controller.close();
             },
             (error: Error) => {
               if (!cancelled) controller.error(error);
@@ -155,6 +188,10 @@ export class LobeHubBridge {
           )
           .finally(() => {
             clearTimeout(timer);
+            void this.pending
+              .get(requestId)
+              ?.closeReader?.()
+              .catch(() => {});
             this.pending.delete(requestId);
           });
       },

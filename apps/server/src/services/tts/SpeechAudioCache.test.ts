@@ -9,6 +9,16 @@ import {
   SpeechAudioCache,
 } from './SpeechAudioCache';
 
+const background: Promise<unknown>[] = [];
+vi.mock('@/server/utils/scheduleAfterResponse', () => ({
+  after: (work: () => Promise<unknown>) => {
+    background.push(work());
+  },
+}));
+const flushCache = async () => {
+  await Promise.all(background.splice(0));
+};
+
 const identity: SpeechCacheIdentity = {
   input: 'Hello',
   model: 'tts-1',
@@ -56,12 +66,39 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-11-15T12:00:00Z'));
 });
-afterEach(() => {
+afterEach(async () => {
+  await vi.advanceTimersByTimeAsync(SPEECH_CACHE_TIMEOUT_MS);
+  await flushCache();
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
 describe('speech object cache', () => {
+  it('returns audio before the bucket upload completes', async () => {
+    let finishUpload!: () => void;
+    storage.uploadBuffer.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishUpload = () => resolve({ key: 'stored' });
+        }),
+    );
+    let returned = false;
+    const result = cache()
+      .synthesize(identity, generate)
+      .then((value) => {
+        returned = true;
+        return value;
+      });
+    await vi.advanceTimersByTimeAsync(0);
+    try {
+      expect(returned).toBe(true);
+      await expect(result).resolves.toEqual(audio);
+    } finally {
+      finishUpload();
+    }
+    await vi.advanceTimersByTimeAsync(0);
+  });
+
   it('reuses stored bytes across service instances, without repeating usage', async () => {
     expect(await cache().synthesize(identity, generate)).toEqual(audio);
     expect(await cache().synthesize(identity, generate)).toEqual({
@@ -99,6 +136,7 @@ describe('speech object cache', () => {
     await cache('user-b').synthesize(identity, generate);
     await cache('user-a', 'workspace').synthesize(identity, generate);
     expect(generate).toHaveBeenCalledTimes(3);
+    await flushCache();
     expect(files.size).toBe(3);
   });
 
@@ -118,6 +156,7 @@ describe('speech object cache', () => {
       vi.setSystemTime(Date.now() + 1);
       await cache().synthesize({ ...identity, input: `clip ${i}` }, generate);
     }
+    await flushCache();
     expect(files.size).toBe(SPEECH_CACHE_LIMIT + 1);
     const count = generate.mock.calls.length;
     await cache().synthesize({ ...identity, input: `clip ${SPEECH_CACHE_LIMIT}` }, generate);
@@ -129,8 +168,10 @@ describe('speech object cache', () => {
 
   it('falls back when a listed object is missing or storage is unavailable', async () => {
     await cache().synthesize(identity, generate);
+    await flushCache();
     storage.getFileByteArray.mockRejectedValueOnce(new Error('NoSuchKey'));
     expect(await cache().synthesize(identity, generate)).toEqual(audio);
+    await flushCache();
     storage.listFileKeys.mockRejectedValueOnce(new Error('Offline'));
     storage.uploadBuffer.mockRejectedValueOnce(new Error('Offline'));
     expect(await cache().synthesize(identity, generate)).toEqual(audio);
@@ -145,6 +186,7 @@ describe('speech object cache', () => {
     await expect(cache().synthesize(identity, fail)).rejects.toThrow('Provider failed');
     await cache().synthesize(identity, fail);
     expect(fail).toHaveBeenCalledTimes(2);
+    await flushCache();
     files.clear();
     storage.uploadBuffer.mockClear();
     for (const bytes of [0, SPEECH_CACHE_MAX_BYTES + 1]) {

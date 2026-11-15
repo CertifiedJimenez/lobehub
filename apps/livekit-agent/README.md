@@ -47,8 +47,16 @@ both models; room transport credentials are separate from provider credentials.
 Recognized text runs through the mounted conversation's normal `sendMessage`
 path. Its selected model/harness, tools, approval UI, cancellation and history
 remain owned by LobeHub. The LiveKit LLM adapter delegates reasoning to LobeHub.
-It waits for the completed reply before synthesis. Closing or navigating away
-disconnects media and cancels pending operations.
+Assistant text streams from the existing chat transcript into LiveKit as it arrives,
+so synthesis can begin before the full turn finishes. Interrupting speech cancels
+that turn through the native runtime and waits for startup/stop cleanup before
+accepting its replacement. Closing or navigating away disconnects media and
+cancels pending operations.
+
+Keep the browser and worker on the same revision and restart the worker after
+updating the voice bridge protocol. Endpointing delays use milliseconds in the
+Node SDK. Preemptive generation remains disabled because a LobeHub turn may run
+tools; speech provider choices and their streaming capabilities are unchanged.
 
 ## Direct Fish Audio streaming
 

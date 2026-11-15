@@ -21,9 +21,8 @@ import { useConversationStore, useConversationStoreApi } from '../store';
 import { CallAudio, CallMicrophone, CallVisualizer } from './CallPanel';
 import { VoiceCallClient } from './client';
 import { notifyVoiceCallError } from './notifyError';
-import { getVoiceReply } from './reply';
+import { runVoiceTurn } from './runTurn';
 import { isVoiceCallSpeechConfigured } from './speechModels';
-import { waitForVoiceReply } from './waitForReply';
 import { VoiceWorkerUnavailableError } from './waitForWorker';
 
 export const VoiceCall = ({
@@ -81,7 +80,7 @@ export const VoiceCall = ({
       onError: notifyVoiceCallError,
       onSpeech: handleConversationSpeech,
       onWorking: (working) => setStatus(working ? 'working' : 'connected'),
-      onTurn: async (text, signal) => {
+      onTurn: async (text, signal, onText) => {
         const state = store.getState();
         if (
           !state.composerTarget.writable ||
@@ -92,23 +91,13 @@ export const VoiceCall = ({
         if (operationSelectors.isInputVisiblyLoadingByContext(context)(useChatStore.getState())) {
           throw new Error('Wait for the current agent turn to finish');
         }
-        signal.throwIfAborted();
-        const result = await useChatStore.getState().sendMessage({
+        await runVoiceTurn({
           context,
-          inputEditor: null,
-          message: text,
-          preserveComposer: true,
+          text,
           signal,
-        });
-        signal.throwIfAborted();
-        if (!result) throw new Error('The voice turn was not accepted');
-        return waitForVoiceReply({
-          signal,
-          subscribe: (listener) => useChatStore.subscribe(listener),
-          isRunning: () =>
-            operationSelectors.isInputLoadingByContext(context)(useChatStore.getState()),
-          readReply: async () =>
-            getVoiceReply(await messageService.getMessages(context), result.userMessageId),
+          onText,
+          store: useChatStore,
+          readMessages: () => messageService.getMessages(context),
         });
       },
     });
