@@ -2,6 +2,8 @@ import { Flexbox, Select, type SelectOptions } from '@lobehub/ui';
 import * as stylex from '@stylexjs/stylex';
 import { useTranslation } from 'react-i18next';
 
+import { useIsMobile } from '@/hooks/useIsMobile';
+
 import { type ModelRef } from '../serviceModelState';
 import ModelLabel from './ModelLabel';
 import { styles } from './styles';
@@ -28,6 +30,7 @@ interface TierRowProps {
  */
 const TierRow = ({ disabled, modelKind, onChange, recommended, title, value }: TierRowProps) => {
   const { t } = useTranslation('setting');
+  const mobile = useIsMobile();
   const { groups, parseValue } = useModelOptions(modelKind);
   const getModelName = useModelName();
   const systemLabel = t('serviceModel.systemRecommended');
@@ -59,7 +62,7 @@ const TierRow = ({ disabled, modelKind, onChange, recommended, title, value }: T
       classNames={{ value: stylex.props(styles.triggerValue).className }}
       disabled={disabled}
       options={options}
-      style={{ width: '100%' }}
+      style={{ minHeight: mobile ? 44 : undefined, width: '100%' }}
       value={selected}
       variant={'filled'}
       labelRender={() => {

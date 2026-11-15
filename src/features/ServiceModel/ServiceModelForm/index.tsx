@@ -15,6 +15,7 @@ import AutoSaveHint from '@/components/Editor/AutoSaveHint';
 import { ServiceModelFormSkeleton } from '@/components/Skeleton/Settings/tabs/ServiceModel';
 import { FORM_STYLE } from '@/const/layoutTokens';
 import { SettingsSearchAnchor } from '@/features/SettingsSearch/anchor';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { usePermission } from '@/hooks/usePermission';
 import { useSaveState } from '@/hooks/useSaveState';
 import { serverConfigSelectors, useServerConfigStore } from '@/store/serverConfig';
@@ -40,7 +41,7 @@ import {
   tierOfSlot,
 } from '../serviceModelState';
 import SlotRow, { type RowState } from './SlotRow';
-import { PICKER_WIDTH, styles } from './styles';
+import { formStyles, PICKER_WIDTH, styles } from './styles';
 import TierRow from './TierRow';
 import { type ModelKind } from './useModelCatalog';
 
@@ -102,6 +103,7 @@ interface ServiceModelFormProps {
 
 const ServiceModelForm = ({ hidePersonalPreferences }: ServiceModelFormProps) => {
   const { t } = useTranslation('setting');
+  const mobile = useIsMobile();
   const enableChannels = useServerConfigStore(serverConfigSelectors.enableChannels);
   const { allowed: canManage, reason } = usePermission('manage_settings');
   const [storedSystemAgent, storedDefaultAgent, defaults, defaultAgentDefaults] = useUserStore(
@@ -227,10 +229,11 @@ const ServiceModelForm = ({ hidePersonalPreferences }: ServiceModelFormProps) =>
     return (
       <Flexbox key={row}>
         <Flexbox
-          horizontal
-          align={'center'}
-          gap={24}
+          align={mobile ? 'stretch' : 'center'}
+          gap={mobile ? 8 : 24}
+          horizontal={!mobile}
           justify={'space-between'}
+          paddingBlock={mobile ? 8 : undefined}
           {...stylex.props(styles.row)}
         >
           <span {...stylex.props(state.kind === 'off' ? styles.taskNameOff : styles.taskName)}>
@@ -280,8 +283,18 @@ const ServiceModelForm = ({ hidePersonalPreferences }: ServiceModelFormProps) =>
 
     return (
       <Flexbox {...stylex.props(styles.advanced)}>
-        <Flexbox horizontal align={'center'} gap={24} justify={'space-between'}>
-          <Flexbox horizontal align={'baseline'} gap={8} style={{ minWidth: 0 }}>
+        <Flexbox
+          align={mobile ? 'stretch' : 'center'}
+          gap={mobile ? 8 : 24}
+          horizontal={!mobile}
+          justify={'space-between'}
+        >
+          <Flexbox
+            align={mobile ? 'stretch' : 'baseline'}
+            gap={8}
+            horizontal={!mobile}
+            style={{ minWidth: 0 }}
+          >
             {key === 'main' ? (
               <SettingsSearchAnchor id={ADVANCED_ANCHOR}>{heading}</SettingsSearchAnchor>
             ) : (
@@ -289,7 +302,13 @@ const ServiceModelForm = ({ hidePersonalPreferences }: ServiceModelFormProps) =>
             )}
             <span {...stylex.props(styles.sectionDesc)}>{summary}</span>
           </Flexbox>
-          <Flexbox horizontal align={'center'} gap={4} style={{ flex: 'none' }}>
+          <Flexbox
+            horizontal
+            align={'center'}
+            gap={4}
+            justify={'flex-end'}
+            style={{ flex: 'none' }}
+          >
             {customCount > 0 && (
               <Button
                 disabled={!canManage}
@@ -356,9 +375,9 @@ const ServiceModelForm = ({ hidePersonalPreferences }: ServiceModelFormProps) =>
     if (MEMORY_CONTEXT_LIMIT_SLOTS.has(row) && (state.kind === 'custom' || contextLimit)) {
       return (
         <Flexbox
-          horizontal
-          align={'center'}
-          gap={24}
+          align={mobile ? 'stretch' : 'center'}
+          gap={mobile ? 8 : 24}
+          horizontal={!mobile}
           justify={'space-between'}
           style={{ minHeight: 40 }}
         >
@@ -369,7 +388,7 @@ const ServiceModelForm = ({ hidePersonalPreferences }: ServiceModelFormProps) =>
             aria-label={t('serviceModel.contextLimit.placeholder')}
             disabled={!canManage}
             min={1}
-            style={{ flex: 'none', width: PICKER_WIDTH }}
+            style={{ flex: 'none', width: mobile ? '100%' : PICKER_WIDTH }}
             value={contextLimit}
             variant={'filled'}
             onChange={(next) =>
@@ -475,7 +494,7 @@ const ServiceModelForm = ({ hidePersonalPreferences }: ServiceModelFormProps) =>
             align={'center'}
             gap={12}
             justify={'flex-end'}
-            style={{ flex: 'none', width: PICKER_WIDTH }}
+            style={{ flex: 'none', width: mobile ? '100%' : PICKER_WIDTH }}
           >
             {state.kind !== 'off' && (
               <SlotRow
@@ -510,6 +529,7 @@ const ServiceModelForm = ({ hidePersonalPreferences }: ServiceModelFormProps) =>
 
   return (
     <Form
+      classNames={{ group: formStyles.group }}
       collapsible={false}
       form={form}
       items={groups}

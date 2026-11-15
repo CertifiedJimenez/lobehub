@@ -2,6 +2,8 @@ import { Select, type SelectOptions } from '@lobehub/ui';
 import * as stylex from '@stylexjs/stylex';
 import { useTranslation } from 'react-i18next';
 
+import { useIsMobile } from '@/hooks/useIsMobile';
+
 import { type ModelRef, type SlotChoice } from '../serviceModelState';
 import ModelLabel from './ModelLabel';
 import { PICKER_WIDTH, styles } from './styles';
@@ -45,6 +47,7 @@ const SlotRow = ({
   width = PICKER_WIDTH,
 }: SlotRowProps) => {
   const { t } = useTranslation('setting');
+  const mobile = useIsMobile();
   const { groups, parseValue } = useModelOptions(modelKind);
   const getModelName = useModelName();
 
@@ -84,18 +87,15 @@ const SlotRow = ({
       aria-label={title}
       classNames={{ value: stylex.props(styles.triggerValue).className }}
       disabled={disabled}
-      options={options}
-      // borderless sits 1px further right than a filled trigger; keep the arrows in one line
-      style={{ flex: 'none', marginInlineEnd: 1, width }}
       value={value}
-      variant={'borderless'}
+      variant={mobile ? 'filled' : 'borderless'}
       labelRender={() =>
         state.kind === 'custom' ? (
-          <span {...stylex.props(styles.valueEnd)}>
+          <span {...stylex.props(styles.valueEnd, mobile && styles.valueStart)}>
             <ModelLabel model={state.value.model} name={getModelName(state.value)} />
           </span>
         ) : (
-          <span {...stylex.props(styles.valueMuted)}>
+          <span {...stylex.props(styles.valueMuted, mobile && styles.valueStart)}>
             {state.kind === 'off' ? t('serviceModel.off') : followLabel}
           </span>
         )
@@ -105,6 +105,15 @@ const SlotRow = ({
         if (next === FOLLOW_VALUE) onChange({ kind: 'follow' });
         else if (next === OFF_VALUE) onChange({ kind: 'off' });
         else onChange({ kind: 'custom', value: parseValue(next) });
+      }}
+      options={options}
+      // borderless sits 1px further right than a filled trigger; keep the arrows in one line
+      style={{
+        flex: mobile ? '1' : 'none',
+        marginInlineEnd: mobile ? 0 : 1,
+        minHeight: mobile ? 44 : undefined,
+        minWidth: 0,
+        width: mobile ? '100%' : width,
       }}
     />
   );

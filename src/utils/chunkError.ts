@@ -48,7 +48,10 @@ export function notifyChunkError(error?: unknown): void {
   // that is still missing after the reload lands on the toast instead of
   // re-arming another reload.
   if (sessionStorage.getItem(RELOAD_KEY)) {
-    toast.error('There is a new version for the web app. Refresh the page to update');
+    toast.error({
+      description: 'There is a new version for the web app. Refresh the page to update',
+      id: RELOAD_KEY,
+    });
     return;
   }
 
