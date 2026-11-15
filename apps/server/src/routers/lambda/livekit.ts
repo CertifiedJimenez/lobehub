@@ -160,7 +160,6 @@ export const livekitRouter = router({
     return new LivekitService(ctx.userId, connection, ctx.workspaceId ?? undefined).createSession(
       {
         ...preferences,
-        enabled: true,
         speechBackend: inferenceASR ? 'livekit' : 'lobehub',
         ttsBackend: inferenceTTS ? 'livekit' : 'lobehub',
         inference: {

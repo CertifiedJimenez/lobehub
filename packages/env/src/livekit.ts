@@ -9,6 +9,8 @@ const livekitConnectionSchema = z.object({
   apiSecret: z.string().min(1),
 });
 
+export type LivekitConnection = z.infer<typeof livekitConnectionSchema>;
+
 /** Deployment-owned transport; no LiveKit administrator credentials reach clients. */
 export const getLivekitConnection = () => {
   const result = livekitConnectionSchema.safeParse({

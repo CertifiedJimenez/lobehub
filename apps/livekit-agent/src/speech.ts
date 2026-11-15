@@ -20,12 +20,9 @@ export class LobeHubSTT extends stt.STT {
   label = 'lobehub.STT';
   constructor(
     private readonly bridge: LobeHubBridge,
-    private language: string,
+    private readonly language: string,
   ) {
     super({ streaming: false, interimResults: false });
-  }
-  setLanguage(language: string) {
-    this.language = language;
   }
   async _recognize(buffer: AudioBuffer, signal?: AbortSignal): Promise<stt.SpeechEvent> {
     signal?.throwIfAborted();

@@ -183,7 +183,6 @@ describe('native Conversation sessions', () => {
     });
     const session = await caller.createSession();
     expect(session.config).toMatchObject({
-      enabled: true,
       speechBackend: 'lobehub',
       ttsBackend: 'lobehub',
       tts: nativeModels.tts,

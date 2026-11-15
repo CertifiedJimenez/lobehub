@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 
+import type { LivekitConnection } from '@lobechat/env/livekit';
 import {
   type ConversationConfig,
   getConversationTTSBackend,
-  type LivekitConnection,
   VOICE_AGENT_NAME,
 } from '@lobechat/livekit-bridge';
 import { ssrfSafeFetch } from '@lobechat/ssrf-safe-fetch';

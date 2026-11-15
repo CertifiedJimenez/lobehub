@@ -6,9 +6,6 @@ import {
 import { describe, expect, it } from 'vitest';
 
 describe('Conversation configuration', () => {
-  it('defaults to disabled personal configuration', () => {
-    expect(conversationConfigSchema.parse({}).enabled).toBe(false);
-  });
   it('does not add or override the reasoning model or harness', () => {
     expect(
       conversationConfigSchema.parse({ model: 'replace-agent', provider: 'other' }),

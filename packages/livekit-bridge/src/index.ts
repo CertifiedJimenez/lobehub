@@ -17,7 +17,6 @@ export const voiceResultSchema = z.discriminatedUnion('ok', [
 ]);
 /** Personal media preferences; models and credentials remain in LobeHub. */
 export const conversationConfigSchema = z.object({
-  enabled: z.boolean().default(false),
   speechBackend: z.enum(['lobehub', 'livekit']).default('lobehub'),
   /** Overrides speech output independently, e.g. LiveKit STT with local TTS. */
   ttsBackend: z.enum(['lobehub', 'livekit']).optional(),
@@ -39,15 +38,6 @@ export type ConversationConfig = z.infer<typeof conversationConfigSchema>;
 export const getConversationTTSBackend = (
   config: Pick<ConversationConfig, 'ttsBackend' | 'speechBackend'>,
 ) => config.ttsBackend ?? config.speechBackend;
-export const livekitConnectionSchema = z.object({
-  url: z.url({ protocol: /^wss?$/ }).refine((value) => {
-    const url = new URL(value);
-    return !url.username && !url.password && !url.search && !url.hash;
-  }, 'Use a WebSocket server URL without credentials, query, or fragment'),
-  apiKey: z.string().trim().min(1).max(256),
-  apiSecret: z.string().min(1).max(4096),
-});
-export type LivekitConnection = z.infer<typeof livekitConnectionSchema>;
 export const voiceJobSchema = z.object({
   /** Opaque, short-lived reference; redeemable only by the deployment worker. */
   credentialTicket: z.string().max(4096).optional(),
