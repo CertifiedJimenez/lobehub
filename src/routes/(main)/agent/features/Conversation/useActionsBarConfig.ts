@@ -33,13 +33,13 @@ const CODEX_USER: typeof HETERO_USER = {
 };
 
 const HETERO_ASSISTANT: { bar: MessageActionSlot[]; menu: MessageActionSlot[] } = {
-  bar: ['copy'],
+  bar: ['copy', 'tts'],
   menu: ['copy', 'divider', 'select', 'divider', 'del'],
 };
 
 /** Codex replies can reuse the existing heterogeneous regeneration path. */
 const CODEX_ASSISTANT: typeof HETERO_ASSISTANT = {
-  bar: ['copy', 'regenerate'],
+  bar: ['copy', 'tts', 'regenerate'],
   menu: ['regenerate', ...HETERO_ASSISTANT.menu],
 };
 

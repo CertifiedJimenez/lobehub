@@ -1,8 +1,21 @@
+// oxlint-disable-next-line stylex-migration/no-emotion-styles -- Form exposes no slot for its group title
+import { createStaticStyles } from '@lobehub/ui';
 import { cssVar } from '@lobehub/ui/stylex/cssVar.stylex';
 import * as stylex from '@stylexjs/stylex';
 
 /** The advanced rows' picker column; every task picker ends on the same right edge. */
 export const PICKER_WIDTH = 280;
+
+// Let the library's group heading shrink so descriptions wrap within the form.
+export const formStyles = createStaticStyles(({ css }) => ({
+  group: css`
+    .lobe-form-form__group-title {
+      min-width: 0;
+      flex-shrink: 1;
+      overflow-wrap: anywhere;
+    }
+  `,
+}));
 
 export const styles = stylex.create({
   /** A tier's 「高级」 label: one quiet line under the tier, never a peer of its title. */
@@ -81,5 +94,9 @@ export const styles = stylex.create({
     display: 'flex',
     justifyContent: 'flex-end',
     minWidth: 0,
+  },
+  valueStart: {
+    justifyContent: 'flex-start',
+    textAlign: 'start',
   },
 });

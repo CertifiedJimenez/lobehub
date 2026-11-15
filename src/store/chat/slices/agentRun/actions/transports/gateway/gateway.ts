@@ -1361,10 +1361,10 @@ export class GatewayActionImpl {
       );
     cancelledAfterPersistence = interruptIfCancelledAfterPersistence() || cancelledAfterPersistence;
 
+    cancelledAfterPersistence = (await lateInterruptConfirmed) ?? cancelledAfterPersistence;
     if (cancelledAfterPersistence || failedBeforeStart) {
-      // No socket opens here, so no terminal frame retires the row. A stop settles
-      // once confirmed AND the sidebar refetch landed: settling first finds no
-      // marker, and the refetch would reinstall a `running` row nobody retires.
+      // Confirm the native stop before releasing the caller; sidebar reconciliation
+      // still waits for its refetch in the background.
       const { topicId } = result;
       if (lateInterruptConfirmed && topicId) {
         void Promise.all([lateInterruptConfirmed, topicRefresh]).then(([confirmed]) => {

@@ -63,6 +63,11 @@ export const DEFAULT_ASR_SYSTEM_AGENT_ITEM: SystemAgentItem = {
   provider: DEFAULT_ASR_PROVIDER,
 };
 
+export const DEFAULT_TTS_SYSTEM_AGENT_ITEM: SystemAgentItem = {
+  model: '',
+  provider: '',
+};
+
 export const DEFAULT_USER_MEMORY_EMBEDDING_SYSTEM_AGENT_ITEM: SystemAgentItem = {
   model: DEFAULT_EMBEDDING_MODEL,
   provider: DEFAULT_EMBEDDING_PROVIDER,
@@ -107,6 +112,7 @@ export const DEFAULT_SYSTEM_AGENT_CONFIG: UserServiceModelConfig = {
   topic: DEFAULT_MINI_SYSTEM_AGENT_ITEM,
   topicAutoSummary: DEFAULT_TOPIC_AUTO_SUMMARY_SYSTEM_AGENT_ITEM,
   translation: DEFAULT_MINI_SYSTEM_AGENT_ITEM,
+  tts: DEFAULT_TTS_SYSTEM_AGENT_ITEM,
   verify: DEFAULT_VERIFY_SYSTEM_AGENT_ITEM,
 };
 
@@ -114,7 +120,7 @@ export const DEFAULT_SYSTEM_AGENT_CONFIG: UserServiceModelConfig = {
  * Which top-level Service Model tier each task slot follows. A slot's default
  * above is its tier's default, so a slot that follows an unset tier runs the
  * same system-recommended model the tier shows. The first slot of a tier
- * stands for the tier's own recommendation. Slots left out (`asr`,
+ * stands for the tier's own recommendation. Slots left out (`asr`, `tts`,
  * `channelRouting`, onboarding) keep their own system default and ignore tier changes.
  */
 export const SERVICE_MODEL_TIER_SLOTS: Record<ServiceModelTier, UserServiceModelConfigKey[]> = {

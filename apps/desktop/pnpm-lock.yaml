@@ -605,6 +605,12 @@ importers:
         specifier: ^0.11.1
         version: 0.11.1
 
+  ../../packages/livekit-bridge:
+    dependencies:
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+
   ../../packages/local-file-shell:
     dependencies:
       '@lobechat/device-sandbox':
@@ -701,6 +707,9 @@ importers:
       '@lobechat/business-const':
         specifier: workspace:*
         version: link:../business/const
+      '@lobechat/livekit-bridge':
+        specifier: workspace:*
+        version: link:../livekit-bridge
       '@lobehub/market-sdk':
         specifier: 0.46.0
         version: 0.46.0(supports-color@9.4.0)(zod@4.6.5)

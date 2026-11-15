@@ -1,5 +1,6 @@
 import { ENABLE_BUSINESS_FEATURES } from '@lobechat/business-const';
 import { parseToolNameMaxLength } from '@lobechat/const/plugin';
+import { getLivekitConnection } from '@lobechat/env/livekit';
 import { ModelProvider } from 'model-bank';
 import urlJoin from 'url-join';
 
@@ -208,6 +209,7 @@ export const getServerGlobalConfig = async () => {
     // Whether the server can relay an LLM call to a tab (gateway + Redis): only
     // then does the browser drop its own provider fallback for the one-shot relay.
     llmRelayAvailable: isLlmRelayDeploymentReady(),
+    livekitConfigured: !!getLivekitConnection(),
 
     image: cleanObject({
       defaultImageNum: imageEnv.AI_IMAGE_DEFAULT_IMAGE_NUM,

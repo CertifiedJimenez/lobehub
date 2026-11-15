@@ -177,7 +177,8 @@ const serverResult: ExecAgentResult = {
 
 /** Start a Gateway run and return its registered cancel hook. */
 const startRun = async (
-  interrupt: { deviceCancellationConfirmed?: boolean },
+  interrupt:
+    { deviceCancellationConfirmed?: boolean } | Promise<{ deviceCancellationConfirmed?: boolean }>,
   stoppedApproval?: ExecAgentResult,
 ) => {
   const onOperationCancel = vi.fn();
@@ -208,11 +209,11 @@ const startRun = async (
   };
   const action = new GatewayActionImpl(set as any, get, undefined);
   action.createClient = vi.fn(() => createMockClient());
-  vi.mocked(aiAgentService.interruptTask).mockResolvedValue({
-    ...interrupt,
+  vi.mocked(aiAgentService.interruptTask).mockImplementation(async () => ({
+    ...(await interrupt),
     operationId: 'server-op',
     success: true,
-  });
+  }));
   vi.mocked(aiAgentService.execAgentTask).mockResolvedValue(serverResult);
 
   if (stoppedApproval) {
@@ -223,7 +224,10 @@ const startRun = async (
       parentOperationId: 'approve-op',
       precreatedResult: stoppedApproval,
     });
-    return { get, handler: undefined as never };
+    return {
+      get,
+      handler: onOperationCancel.mock.calls[0]?.[1] as (() => Promise<void>) | undefined,
+    };
   }
   await action.executeGatewayAgent({ context, message: 'Hello' });
   const [, handler] = onOperationCancel.mock.calls[0];
@@ -231,6 +235,30 @@ const startRun = async (
 };
 
 describe('stopping a Gateway run', () => {
+  it('does not finish an aborted start until the server interrupt is confirmed', async () => {
+    let confirm!: (value: {}) => void;
+    const interrupt = new Promise<{}>((resolve) => {
+      confirm = resolve;
+    });
+    let returned = false;
+    const execution = startRun(interrupt, serverResult).then(() => {
+      returned = true;
+    });
+    await vi.waitFor(() => expect(aiAgentService.interruptTask).toHaveBeenCalled());
+    try {
+      expect(returned).toBe(false);
+    } finally {
+      confirm({});
+    }
+    await execution;
+  });
+
+  it('retains a native cancellation handler when a late interrupt is not confirmed', async () => {
+    const { handler } = await startRun({ deviceCancellationConfirmed: false }, serverResult);
+    expect(handler).toBeTypeOf('function');
+    await expect(handler!()).rejects.toThrow('cancellation unconfirmed');
+  });
+
   // ROOT CAUSE:
   //
   // A stopped run starts nothing next, yet the follow-ups this client had
@@ -241,14 +269,14 @@ describe('stopping a Gateway run', () => {
   // After: once the stop is confirmed, the follow-ups come back to this client.
   it('takes the follow-ups queued on the server back once the stop is confirmed', async () => {
     const { get, handler } = await startRun({});
-    await handler();
+    await handler!();
 
     expect(reclaimServerQueuedMessages).toHaveBeenCalledWith(get, messageMapKey(context));
   });
 
   it('keeps them on the server when the stop is not confirmed', async () => {
     const { handler } = await startRun({ deviceCancellationConfirmed: false });
-    await expect(handler()).rejects.toThrow();
+    await expect(handler!()).rejects.toThrow();
 
     expect(reclaimServerQueuedMessages).not.toHaveBeenCalled();
   });

@@ -231,6 +231,8 @@ export interface GlobalServerConfig {
   /** Workspace pages collaborate live through the gateway's durable rooms (LobeHub Cloud). */
   enableWorkspacePageCollab?: boolean;
   image?: PartialDeep<UserImageConfig>;
+  /** Whether deployment LiveKit transport is configured. */
+  livekitConfigured?: boolean;
   /**
    * Whether the server can relay an LLM call to a browser tab (Agent Gateway
    * with its service token + Redis). The one-shot relay is used only then.

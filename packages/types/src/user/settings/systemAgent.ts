@@ -37,6 +37,8 @@ export interface UserSystemAgentConfig {
   /** Background workflow that summarizes inactive topics into description/historySummary. */
   topicAutoSummary: SystemAgentItem;
   translation: SystemAgentItem;
+  /** Speech output model. Empty `model`/`provider` means unconfigured. */
+  tts: SystemAgentItem;
   /**
    * Model the builtin verify agent judges task deliveries with. It reads
    * screenshot evidence, so it must be vision-capable. A Task that pins its own

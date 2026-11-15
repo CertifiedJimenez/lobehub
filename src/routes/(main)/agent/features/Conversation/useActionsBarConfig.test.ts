@@ -120,7 +120,7 @@ describe('useActionsBarConfig', () => {
     });
 
     /** @example Claude Code keeps its current quick actions. */
-    expect(result.current.assistant?.bar).toEqual(['copy']);
+    expect(result.current.assistant?.bar).toEqual(['copy', 'tts']);
     /** @example Claude Code keeps its current overflow menu. */
     expect(result.current.assistant?.menu).toEqual(['copy', 'divider', 'select', 'divider', 'del']);
   });

@@ -1,4 +1,27 @@
 export default {
+  'readAloud.start': 'Read aloud',
+  'readAloud.stop': 'Stop reading',
+  'readAloud.cancel': 'Generating audio… Click to cancel',
+  'readAloud.play': 'Audio ready — click to play',
+  'readAloud.timeout': 'Speech generation took too long. Try reading this reply again.',
+  'readAloud.error': 'Could not play this reply. Check your Speech Output settings and try again.',
+  'readAloud.notConfigured':
+    'Choose a Speech Output model in Settings → Service Model to read replies aloud.',
+
+  'voiceCall.muted': 'Muted',
+  'voiceCall.mute': 'Mute microphone',
+  'voiceCall.unmute': 'Unmute microphone',
+  'voiceCall.workerUnavailable':
+    'The voice service is unavailable. Ask your administrator to check the LiveKit worker.',
+  'voiceCall.agentState.connecting': 'Connecting…',
+  'voiceCall.agentState.listening': 'Listening',
+  'voiceCall.agentState.thinking': 'Thinking',
+  'voiceCall.deviceError': 'Could not access this device. Check your browser permissions.',
+  'voiceCall.enableAudio': 'Enable audio',
+  'voiceCall.end': 'End conversation',
+  'voiceCall.error':
+    'The call could not continue. Check microphone permissions, the voice service, or the agent response, then try again.',
+  'voiceCall.start': 'Conversation',
   'directMention.progress.elapsed': '{{time}}',
   'directMention.progress.running': 'Running',
   'directMention.progress.thinking': 'Thinking…',

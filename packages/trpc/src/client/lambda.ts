@@ -249,6 +249,8 @@ const latencyCriticalProcedures = new Set([
   'workspace.getSettings',
 ]);
 const SKIP_BATCH_PROCEDURES = new Set([
+  // Each spoken sentence must return as soon as its audio is ready.
+  'tts.synthesize',
   ...initialLoadProcedures,
   ...slowProcedures,
   ...latencyCriticalProcedures,

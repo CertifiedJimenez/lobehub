@@ -1,15 +1,24 @@
+import { createHash } from 'node:crypto';
+
 import type { ModelRuntime } from '@lobechat/model-runtime';
 import { countTextToSpeechCharacters } from '@lobechat/model-runtime';
 import type { ModelUsage } from '@lobechat/types';
 import { AgentRuntimeErrorType, RequestTrigger } from '@lobechat/types';
+import debug from 'debug';
 import type { AITTSModelCard, TTSAudioFormat } from 'model-bank';
 import { LOBE_DEFAULT_MODEL_LIST, TTS_AUDIO_MIME_TYPES, validateTTSParams } from 'model-bank';
 import { ModelProvider } from 'model-bank/modelProvider';
 import { DEFAULT_MODEL_PROVIDER_LIST } from 'model-bank/modelProviders';
 
 import { AiModelModel } from '@/database/models/aiModel';
+import { AiProviderModel } from '@/database/models/aiProvider';
 import type { LobeChatDatabase } from '@/database/type';
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
+import { FileService } from '@/server/services/file';
+
+import { SpeechAudioCache } from './SpeechAudioCache';
+
+const log = debug('lobe-tts:cache');
 
 /**
  * The audio goes back inside one buffered response (≈4.5MB on serverless deploys), as
@@ -187,6 +196,7 @@ export const resolveTTSModelRef = (
  * hooks reserve, settle and release the spend.
  */
 export class TTSService {
+  private fileService?: FileService;
   constructor(
     private readonly db: LobeChatDatabase,
     private readonly userId: string,
@@ -245,18 +255,64 @@ export class TTSService {
       throw error;
     }
 
+    const voiceIsDefault = request.voice === undefined && savedVoice === undefined;
+    const generate = () =>
+      this.generate(runtime, { input, model, params, voice, voiceIsDefault }, provider);
+    let providerRevision: string;
+    try {
+      const configuration = await new AiProviderModel(
+        this.db,
+        this.userId,
+        this.workspaceId,
+      ).findById(provider);
+      // Hash the saved configuration, including the encrypted vault. Endpoint, SDK,
+      // and credential edits must not replay clips from a previous provider setup.
+      providerRevision = createHash('sha256')
+        .update(
+          JSON.stringify([
+            configuration?.config,
+            configuration?.settings,
+            configuration?.keyVaults,
+          ]),
+        )
+        .digest('hex');
+    } catch {
+      log('Provider configuration unavailable; bypassing speech cache');
+      return generate();
+    }
+    const defaults = Object.fromEntries(
+      Object.entries(card?.parameters ?? {}).map(([key, value]) => [key, value.default]),
+    );
+    const cache = new SpeechAudioCache(
+      () => (this.fileService ??= new FileService(this.db, this.userId, this.workspaceId)),
+      this.userId,
+      this.workspaceId,
+    );
+    return cache.synthesize(
+      {
+        input,
+        model,
+        params: { ...defaults, ...params },
+        provider,
+        providerRevision,
+        voice,
+        voiceIsDefault,
+      },
+      generate,
+    );
+  }
+
+  private async generate(
+    runtime: ModelRuntime,
+    payload: Parameters<ModelRuntime['textToSpeech']>[0],
+    provider: string,
+  ): Promise<TTSSynthesizeResult> {
     let result: Awaited<ReturnType<typeof runtime.textToSpeech>>;
     try {
-      result = await runtime.textToSpeech(
-        {
-          input,
-          model,
-          params,
-          voice,
-          voiceIsDefault: request.voice === undefined && savedVoice === undefined,
-        },
-        { metadata: { trigger: RequestTrigger.Tts }, user: this.userId },
-      );
+      result = await runtime.textToSpeech(payload, {
+        metadata: { trigger: RequestTrigger.Tts },
+        user: this.userId,
+      });
     } catch (error) {
       // Budget refusals and other server-side guards already carry their own status.
       if (error instanceof Error && error.name === 'TRPCError') throw error;

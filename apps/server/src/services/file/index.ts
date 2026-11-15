@@ -226,8 +226,11 @@ export class FileService {
     key: string,
     buffer: Buffer,
     contentType: string,
+    options?: { private?: boolean },
   ): Promise<{ key: string }> {
-    return this.impl.uploadBuffer(key, buffer, contentType);
+    return options
+      ? this.impl.uploadBuffer(key, buffer, contentType, options)
+      : this.impl.uploadBuffer(key, buffer, contentType);
   }
 
   private async isStoredFileAvailable(url: string): Promise<boolean> {

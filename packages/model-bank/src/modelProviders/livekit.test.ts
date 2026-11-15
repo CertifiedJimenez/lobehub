@@ -24,14 +24,15 @@ describe('LiveKit built-in provider', () => {
     });
   });
 
-  it('loads gateway chat models from built-ins without network discovery', async () => {
+  it('loads chat, recognition, and synthesis from built-ins without network discovery', async () => {
     const fetch = vi.fn();
     vi.stubGlobal('fetch', fetch);
     try {
       const models = (await loadModels()).filter((model) => model.providerId === 'livekit');
       expect(models).toEqual(getModels());
       expect(models.filter((model) => model.type === 'chat')).toHaveLength(3);
-      expect(models.every((model) => model.type === 'chat')).toBe(true);
+      expect(models.filter((model) => model.type === 'asr')).toHaveLength(4);
+      expect(models.filter((model) => model.type === 'tts')).toHaveLength(4);
       expect(models.every((model) => model.source === 'builtin' && model.enabled)).toBe(true);
       expect(fetch).not.toHaveBeenCalled();
       expect(new Set(models.map((model) => model.id)).size).toBe(models.length);
@@ -40,8 +41,17 @@ describe('LiveKit built-in provider', () => {
     }
   });
 
-  it('uses gateway IDs and excludes retired models', () => {
-    for (const model of livekitModels) expect(model.id).toMatch(/^[^/]+\/.+/);
+  it('uses gateway IDs and a model-specific default voice for every synthesis card', () => {
+    for (const model of livekitModels) {
+      expect(model.id).toMatch(/^[^/]+\/.+/);
+      if (model.type !== 'tts') continue;
+      const defaultVoice = model.parameters?.voice?.default;
+      expect(defaultVoice).toBeTruthy();
+      if (model.voices) {
+        expect(model.voices.some((voice) => voice.id === defaultVoice)).toBe(true);
+      }
+      expect(model.parameters?.speed).toBeUndefined();
+    }
     for (const retired of [
       'cartesia/sonic-2',
       'speechmatics/enhanced',

@@ -1,6 +1,7 @@
 import { SendButton as Send } from '@lobehub/editor/react';
-import { Flexbox, Tooltip } from '@lobehub/ui';
+import { ActionIcon, Button, DropdownMenu, Flexbox, Icon, Tooltip } from '@lobehub/ui';
 import isEqual from 'fast-deep-equal';
+import { ArrowUp, AudioLines, ChevronDown, Square, X } from 'lucide-react';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -8,8 +9,15 @@ import { usePermission } from '@/hooks/usePermission';
 
 import { useChatInputResourceAccess } from '../hooks/useChatInputResourceAccess';
 import { selectors, useChatInputStore } from '../store';
+import { getVoiceComposerAction, type VoiceComposerControl } from './presentation';
 
-const SendButton = memo(() => {
+interface SendButtonProps {
+  hasContent?: boolean;
+  hidden?: boolean;
+  voiceControl?: VoiceComposerControl;
+}
+
+const SendButton = memo<SendButtonProps>(({ hasContent = false, hidden, voiceControl }) => {
   const { t } = useTranslation('setting');
   const sendMenu = useChatInputStore((s) => s.sendMenu);
   const shape = useChatInputStore((s) => s.sendButtonProps?.shape);
@@ -32,6 +40,78 @@ const SendButton = memo(() => {
   const { canUseResource } = useChatInputResourceAccess();
   const viewOnly = !canUseResource;
   const canSend = canCreate && !viewOnly;
+
+  if (voiceControl) {
+    const mode = getVoiceComposerAction({
+      active: voiceControl.active,
+      generating,
+      hasContent,
+      showSendWhileGenerating: Boolean(showSendWhileGenerating),
+    });
+    const isVoiceAction = mode === 'voice' || mode === 'end';
+    const blocked =
+      mode === 'send'
+        ? disabled || !canSend
+        : mode === 'voice'
+          ? voiceControl.disabled || !canSend
+          : false;
+    const title =
+      (mode === 'send' || mode === 'voice') && !canSend
+        ? reason || t('permission.viewOnlySendTip')
+        : mode === 'voice' || mode === 'end'
+          ? t(mode === 'voice' ? 'voiceCall.start' : 'voiceCall.end', { ns: 'chat' })
+          : t(mode, { ns: 'common' });
+    const blockSize = size ?? 36;
+    const icon = { end: X, send: ArrowUp, stop: Square, voice: AudioLines }[mode];
+
+    return (
+      <Flexbox horizontal align="center" gap={8} style={{ display: hidden ? 'none' : undefined }}>
+        {voiceControl.microphone}
+        {generating && mode !== 'stop' && (
+          <ActionIcon
+            aria-label={t('stop', { ns: 'common' })}
+            icon={Square}
+            size={{ blockSize, borderRadius: '50%', size: blockSize < 36 ? 16 : 18 }}
+            title={t('stop', { ns: 'common' })}
+            variant="filled"
+            onClick={() => handleStop()}
+          />
+        )}
+        <Tooltip title={title}>
+          <Button
+            aria-label={title}
+            data-voice-composer-action={mode}
+            disabled={blocked}
+            icon={<Icon icon={icon} size={blockSize < 36 ? 16 : 18} />}
+            key="primary"
+            loading={isVoiceAction ? voiceControl.loading : installing}
+            shape="round"
+            type={mode === 'stop' ? 'fill' : 'primary'}
+            style={{
+              width: blockSize,
+              height: blockSize,
+              minWidth: blockSize,
+              padding: 0,
+              flexShrink: 0,
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (blocked) return;
+              if (isVoiceAction) voiceControl.onClick();
+              else if (mode === 'stop') handleStop();
+              else send();
+            }}
+          />
+        </Tooltip>
+        {mode === 'send' && canSend && sendMenu && (
+          <DropdownMenu items={sendMenu.items} placement="topRight">
+            <ActionIcon aria-label={t('send', { ns: 'common' })} icon={ChevronDown} size="small" />
+          </DropdownMenu>
+        )}
+      </Flexbox>
+    );
+  }
 
   // Stop keeps its spinner so the running state stays visible; Send sits beside
   // it for the follow-up the user typed (Enter sends too).

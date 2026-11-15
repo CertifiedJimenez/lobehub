@@ -1823,8 +1823,7 @@ export default {
   'serviceModel.tier.verify.desc':
     'Task and goal acceptance. It reads screenshot evidence, so only vision models are listed',
   'serviceModel.tier.verify.title': 'Acceptance Model',
-  'serviceModel.voice.desc':
-    'Turns voice messages into text for external agents that only accept text',
+  'serviceModel.voice.desc': 'Choose models for voice message transcription and speech output',
   'serviceModel.voice.title': 'Voice',
   'serviceModel.topicAutoSummary.desc':
     'Summarizes topics created in the rolling 24-hour window after one hour without message activity.',
@@ -2078,6 +2077,7 @@ When I am ___, I need ___
     'Transcribes voice messages to Claude Code and other external agents, which only accept text. Voice input for those agents stays hidden while no model is set or its provider is not enabled.',
   'systemAgent.asr.placeholder': 'Select a speech-to-text model',
   'systemAgent.asr.title': 'Voice Message Transcription',
+  'systemAgent.tts.title': 'Speech Output',
   'systemAgent.expertise.modelDesc':
     'Model used to draft expertise domains and extract reusable experience from conversations.',
   'systemAgent.expertise.title': 'Agent Self-Evolution',

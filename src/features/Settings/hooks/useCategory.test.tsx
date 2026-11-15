@@ -107,6 +107,13 @@ describe('settings useCategory', () => {
     expect(keys).not.toContain(SettingsTabs.OAuthApps);
   });
 
+  it('uses Service Model for speech settings without a separate Conversation category', () => {
+    const keys = getItemKeys();
+
+    expect(keys).toContain(SettingsTabs.ServiceModel);
+    expect(keys).not.toContain('conversation');
+  });
+
   it('hides Provider when provider settings are disabled', () => {
     const { result } = renderHook(() => useCategory(), {
       wrapper: createWrapper(false),

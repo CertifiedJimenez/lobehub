@@ -2,9 +2,14 @@ import { Flexbox } from '@lobehub/ui';
 import isEqual from 'fast-deep-equal';
 import { memo, useMemo } from 'react';
 
+import { fileChatSelectors, useFileStore } from '@/store/file';
+import { useServerConfigStore } from '@/store/serverConfig';
+
 import { type ActionKey } from '../ActionBar/config';
 import { actionMap } from '../ActionBar/config';
+import { ConversationAction } from '../ActionBar/ConversationAction';
 import { useChatInputResourceAccess } from '../hooks/useChatInputResourceAccess';
+import { useChatInputUploadKey } from '../hooks/useChatInputUpload';
 import { useChatInputStore } from '../store';
 import { resolveSendAreaActionKeys } from './resolveActionKeys';
 import SendButton from './SendButton';
@@ -29,6 +34,14 @@ const SendArea = memo<SendAreaProps>(({ hideContextWindow = true }) => {
   const rightActions = useChatInputStore((s) => s.rightActions, isEqual);
   const activeAudioInputMode = useChatInputStore((s) => s.activeAudioInputMode);
   const audioInputActive = activeAudioInputMode !== undefined;
+  const markdown = useChatInputStore((s) => s.markdownContent);
+  const conversationActive = useChatInputStore((s) => s.conversationActive);
+  const uploadKey = useChatInputUploadKey();
+  const hasFiles = useFileStore(fileChatSelectors.chatUploadFileListHasItem(uploadKey));
+  const configured = useServerConfigStore((s) => s.serverConfig.livekitConfigured);
+  const supportsConversation =
+    Boolean(configured) && canShowControls && rightActions.includes('conversation');
+  const hasContent = Boolean(markdown.trim()) || hasFiles;
 
   const items = useMemo(
     () =>
@@ -38,17 +51,33 @@ const SendArea = memo<SendAreaProps>(({ hideContextWindow = true }) => {
               rightActions as ActionKey[],
               hideContextWindow,
               activeAudioInputMode,
+            ).filter(
+              (key) =>
+                key !== 'conversation' &&
+                !(conversationActive && (key === 'voiceDictation' || key === 'voiceMessage')),
             ),
           )
         : [],
-    [activeAudioInputMode, canShowControls, hideContextWindow, rightActions],
+    [activeAudioInputMode, canShowControls, conversationActive, hideContextWindow, rightActions],
   );
 
   return (
     /** The model label must yield space before the footer clips Send on narrow panels. */
     <Flexbox horizontal align={'center'} flex={'0 1 auto'} gap={12} style={{ minWidth: 0 }}>
       {items}
-      {!audioInputActive && <SendButton />}
+      {supportsConversation ? (
+        <ConversationAction>
+          {(voiceControl) => (
+            <SendButton
+              hasContent={hasContent}
+              hidden={audioInputActive}
+              voiceControl={voiceControl}
+            />
+          )}
+        </ConversationAction>
+      ) : (
+        !audioInputActive && <SendButton />
+      )}
     </Flexbox>
   );
 });

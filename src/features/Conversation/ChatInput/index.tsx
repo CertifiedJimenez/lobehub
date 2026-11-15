@@ -39,10 +39,8 @@ import {
   useConversationStore,
   useConversationStoreApi,
 } from '../store';
-import TodoProgress from '../TodoProgress';
+import { ComposerProgress } from './ComposerProgress';
 import InputCompletionErrorAlert from './InputCompletionErrorAlert';
-import LinkedGoalTray from './LinkedGoalTray';
-import OpStatusTray from './OpStatusTray';
 import QueueTray from './QueueTray';
 import SendErrorAlert from './SendErrorAlert';
 import { sendVoiceMessage } from './sendVoiceMessage';
@@ -497,11 +495,10 @@ const ChatInput = memo<ChatInputProps>(
             {notices}
             <InputCompletionErrorAlert />
             {!disableQueue && hasQueuedMessages && <QueueTray />}
-            <TodoProgress topAttached={!disableQueue && hasQueuedMessages} />
-            <OpStatusTray topAttached={(!disableQueue && hasQueuedMessages) || hasTodos} />
-            {/* Goals this conversation planned; sits last so it rides flush on the input. */}
-            <LinkedGoalTray
-              topAttached={(!disableQueue && hasQueuedMessages) || hasTodos || hasOpStatus}
+            <ComposerProgress
+              hasOpStatus={hasOpStatus}
+              hasQueue={!disableQueue && hasQueuedMessages}
+              hasTodos={hasTodos}
             />
           </Flexbox>
           <DesktopChatInput

@@ -1,0 +1,113 @@
+import { createHash, randomUUID } from 'node:crypto';
+
+import type { LivekitConnection } from '@lobechat/env/livekit';
+import {
+  type ConversationConfig,
+  getConversationTTSBackend,
+  VOICE_AGENT_NAME,
+} from '@lobechat/livekit-bridge';
+import { ssrfSafeFetch } from '@lobechat/ssrf-safe-fetch';
+import { AccessToken, RoomAgentDispatch, RoomConfiguration, TrackSource } from 'livekit-server-sdk';
+
+import { issueCredentialTicket } from './credentialTicket';
+
+/** The namespace is derived from the authenticated user, never supplied by the client. */
+export const voiceRoomPrefix = (userId: string) =>
+  `lobe-voice-${createHash('sha256').update(userId).digest('hex').slice(0, 24)}-`;
+
+export class LivekitService {
+  constructor(
+    private readonly userId: string,
+    private readonly connection: LivekitConnection,
+    private readonly workspaceId?: string,
+  ) {}
+
+  async createSession(
+    config: ConversationConfig,
+    needsTTSCredentials = ['fishaudio', 'livekit'].includes(config.tts.provider),
+    inferenceASR?: { model: string; provider: string },
+  ) {
+    const roomName = voiceRoomPrefix(this.userId) + randomUUID();
+    const participantIdentity = `user-${randomUUID()}`;
+    const token = new AccessToken(this.connection.apiKey, this.connection.apiSecret, {
+      identity: participantIdentity,
+      ttl: '5m',
+    });
+    token.addGrant({
+      room: roomName,
+      roomJoin: true,
+      canPublish: true,
+      canPublishSources: [TrackSource.MICROPHONE],
+      canSubscribe: true,
+      canPublishData: true,
+    });
+    token.roomConfig = new RoomConfiguration({
+      emptyTimeout: 60,
+      departureTimeout: 20,
+      maxParticipants: 2,
+      agents: [
+        new RoomAgentDispatch({
+          agentName: VOICE_AGENT_NAME,
+          metadata: JSON.stringify({
+            participantIdentity,
+            ...(inferenceASR
+              ? {
+                  asrCredentialTicket: issueCredentialTicket(
+                    { userId: this.userId, workspaceId: this.workspaceId, ...inferenceASR },
+                    this.connection.apiSecret,
+                  ),
+                }
+              : {}),
+            ...(needsTTSCredentials
+              ? {
+                  credentialTicket: issueCredentialTicket(
+                    { userId: this.userId, workspaceId: this.workspaceId, ...config.tts },
+                    this.connection.apiSecret,
+                  ),
+                }
+              : {}),
+            config: {
+              language: config.language,
+              silenceMs: config.silenceMs,
+              speechBackend: config.speechBackend,
+              ttsBackend: config.ttsBackend,
+              ...(config.speechBackend === 'livekit' ||
+              getConversationTTSBackend(config) === 'livekit'
+                ? { inference: config.inference }
+                : {}),
+              tts: config.tts,
+              voice: config.voice,
+            },
+          }),
+        }),
+      ],
+    });
+    return { config, roomName, serverUrl: this.connection.url, token: await token.toJwt() };
+  }
+
+  async endSession(roomName: string) {
+    // A caller may delete only the rooms minted in their own namespace.
+    if (!roomName.startsWith(voiceRoomPrefix(this.userId))) throw new Error('Invalid voice room');
+    await this.adminRequest('DeleteRoom', { room: roomName });
+  }
+
+  private async adminRequest(method: 'DeleteRoom', body: object) {
+    const token = new AccessToken(this.connection.apiKey, this.connection.apiSecret, { ttl: '1m' });
+    token.addGrant({ roomCreate: true });
+    const url = this.connection.url.replace(/^ws/, 'http').replace(/\/$/, '');
+    const response = await ssrfSafeFetch(`${url}/twirp/livekit.RoomService/${method}`, {
+      method: 'POST',
+      redirect: 'error',
+      signal: AbortSignal.timeout(8000),
+      headers: {
+        'Authorization': `Bearer ${await token.toJwt()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok && response.status !== 404) {
+      throw new Error('LiveKit connection failed. Check the server URL and credentials.');
+    }
+    await response.body?.cancel();
+  }
+}

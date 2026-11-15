@@ -4,6 +4,8 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { MESSAGE_ACTION_BAR_PORTAL_SELECTORS } from '@/const/messageActionPortal';
+import { readAloudPlayer } from '@/features/Conversation/ReadAloud/player';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 import { dataSelectors, messageStateSelectors, useConversationStore } from '../../store';
 import { AssistantActionsBar } from '../Assistant/Actions';
@@ -64,6 +66,9 @@ const AssistantGroupActionsRenderer: FC<SingletonPortalProps> = ({ id }) => {
 };
 
 const SingletonMessageActionsBar = memo(() => {
+  const scope = useConversationStore((s) => messageMapKey(s.context));
+  // Hover changes the singleton toolbar's message; only leaving its conversation ends audio.
+  useEffect(() => () => readAloudPlayer.stopScope(scope), [scope]);
   const livePortalElement = useMessageItemActionElementPortialContext();
   const liveActionType = useMessageItemActionTypeContext();
   // While multi-selecting, the per-message hover action bar would compete with

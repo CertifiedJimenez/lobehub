@@ -6,7 +6,7 @@ import { ChatInput, ChatInputActionBar } from '@lobehub/editor/react';
 import { Center, createStaticStyles, cx, Flexbox, Skeleton, Text } from '@lobehub/ui';
 import { cssVar } from '@lobehub/ui/stylex/cssVar.stylex';
 import * as stylex from '@stylexjs/stylex';
-import { memo, type ReactNode, use, useEffect } from 'react';
+import { memo, type ReactNode, use, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -34,9 +34,11 @@ import { composerHoverMarker } from '../markers.stylex';
 import { McpAppContextChips } from '../McpAppContextChips';
 import SendArea from '../SendArea';
 import TypoBar from '../TypoBar';
+import { VoiceOverlayContext } from '../voiceOverlayContext';
 import ContextContainer from './ContextContainer';
 
 const styles = stylex.create({
+  voiceRow: { display: { 'default': 'block', ':empty': 'none' }, flexShrink: 0 },
   footnote: { fontSize: '10px' },
   fullscreen: {
     position: 'absolute',
@@ -122,6 +124,7 @@ const DesktopChatInput = memo<DesktopChatInputProps>(
     sendAreaPrefix,
   }) => {
     const { t } = useTranslation('chat');
+    const [voiceOverlayTarget, setVoiceOverlayTarget] = useState<HTMLDivElement | null>(null);
     const layoutContainerRef = use(LayoutContainerContext);
     const [chatInputHeight, updateSystemStatus] = useGlobalStore((s) => [
       systemStatusSelectors.chatInputHeight(s),
@@ -228,73 +231,76 @@ const DesktopChatInput = memo<DesktopChatInputProps>(
     );
 
     const content = (
-      <Flexbox
-        className={stylex.props(composerHoverMarker, expand && styles.fullscreen).className}
-        gap={8}
-        paddingBlock={expand ? 0 : showFootnote ? '0 12px' : '0 8px'}
-        style={{ display: hidden ? 'none' : undefined }}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-      >
-        <ChatInput
-          data-testid="chat-input"
-          defaultHeight={chatInputHeight || 32}
-          fullscreen={expand}
-          maxHeight={320}
-          minHeight={36}
-          resize={true}
-          slashMenuRef={slashMenuRef}
-          footer={
-            compact ? undefined : (
-              <ChatInputActionBar
-                left={loadingLeftSlot ?? leftSlot}
-                style={actionBarStyle ?? { paddingRight: 8 }}
-                right={
-                  loadingRightSlot ??
-                  rightContent ??
-                  (sendAreaPrefix ? (
-                    <Flexbox horizontal align={'center'} gap={6}>
-                      {sendAreaPrefix}
-                      <SendArea hideContextWindow={hasControlBar} />
-                    </Flexbox>
-                  ) : (
-                    <SendArea hideContextWindow={hasControlBar} />
-                  ))
-                }
-              />
-            )
-          }
-          header={
-            <Flexbox gap={0}>
-              {extentHeaderContent}
-              {showTypoBar && <TypoBar />}
-              {contextContainerNode}
-            </Flexbox>
-          }
-          onSizeChange={(height) => {
-            updateSystemStatus({ chatInputHeight: height });
-          }}
-          {...inputContainerProps}
-          className={cx(
-            stylex.props(expand && styles.inputFullscreen).className,
-            inputContainerProps?.className,
-          )}
+      <VoiceOverlayContext value={voiceOverlayTarget}>
+        <Flexbox
+          className={stylex.props(composerHoverMarker, expand && styles.fullscreen).className}
+          gap={8}
+          paddingBlock={expand ? 0 : showFootnote ? '0 12px' : '0 8px'}
+          style={{ display: hidden ? 'none' : undefined }}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
         >
-          <InputEditor
-            initialContent={initialContent}
-            placeholder={placeholder}
-            placeholderVariant={placeholderVariant}
-          />
-        </ChatInput>
-        {controlBarSlot ?? (showControlBar && <ControlBar />)}
-        {showFootnote && !expand && (
-          <Center style={{ pointerEvents: 'none', zIndex: 100 }}>
-            <Text className={stylex.props(styles.footnote).className} type={'secondary'}>
-              {t('input.disclaimer')}
-            </Text>
-          </Center>
-        )}
-      </Flexbox>
+          <div className={stylex.props(styles.voiceRow).className} ref={setVoiceOverlayTarget} />
+          <ChatInput
+            data-testid="chat-input"
+            defaultHeight={chatInputHeight || 32}
+            fullscreen={expand}
+            maxHeight={320}
+            minHeight={36}
+            resize={true}
+            slashMenuRef={slashMenuRef}
+            footer={
+              compact ? undefined : (
+                <ChatInputActionBar
+                  left={loadingLeftSlot ?? leftSlot}
+                  style={actionBarStyle ?? { paddingRight: 8 }}
+                  right={
+                    loadingRightSlot ??
+                    rightContent ??
+                    (sendAreaPrefix ? (
+                      <Flexbox horizontal align={'center'} gap={6}>
+                        {sendAreaPrefix}
+                        <SendArea hideContextWindow={hasControlBar} />
+                      </Flexbox>
+                    ) : (
+                      <SendArea hideContextWindow={hasControlBar} />
+                    ))
+                  }
+                />
+              )
+            }
+            header={
+              <Flexbox gap={0}>
+                {extentHeaderContent}
+                {showTypoBar && <TypoBar />}
+                {contextContainerNode}
+              </Flexbox>
+            }
+            onSizeChange={(height) => {
+              updateSystemStatus({ chatInputHeight: height });
+            }}
+            {...inputContainerProps}
+            className={cx(
+              stylex.props(expand && styles.inputFullscreen).className,
+              inputContainerProps?.className,
+            )}
+          >
+            <InputEditor
+              initialContent={initialContent}
+              placeholder={placeholder}
+              placeholderVariant={placeholderVariant}
+            />
+          </ChatInput>
+          {controlBarSlot ?? (showControlBar && <ControlBar />)}
+          {showFootnote && !expand && (
+            <Center style={{ pointerEvents: 'none', zIndex: 100 }}>
+              <Text className={stylex.props(styles.footnote).className} type={'secondary'}>
+                {t('input.disclaimer')}
+              </Text>
+            </Center>
+          )}
+        </Flexbox>
+      </VoiceOverlayContext>
     );
 
     if (expand && layoutContainerRef.current)

@@ -4,7 +4,7 @@ import { ChatInput, ChatInputActionBar } from '@lobehub/editor/react';
 import { Flexbox } from '@lobehub/ui';
 import { cssVar } from '@lobehub/ui/stylex/cssVar.stylex';
 import * as stylex from '@stylexjs/stylex';
-import { memo } from 'react';
+import { memo, useState } from 'react';
 
 import ChatInputNotice from '@/features/ChatInput/ChatInputNotice';
 import ComposerExpandButton from '@/features/ChatInput/components/ComposerExpandButton';
@@ -15,10 +15,12 @@ import ActionBar from '../ActionBar';
 import InputEditor from '../InputEditor';
 import { McpAppContextChips } from '../McpAppContextChips';
 import SendArea from '../SendArea';
+import { VoiceOverlayContext } from '../voiceOverlayContext';
 
 const FilePreview = dynamic(() => import('./FilePreview'), { ssr: false });
 
 const styles = stylex.create({
+  voiceRow: { display: { 'default': 'block', ':empty': 'none' }, flexShrink: 0 },
   fullscreen: {
     position: 'absolute',
     zIndex: 100,
@@ -35,13 +37,14 @@ const styles = stylex.create({
 });
 
 const DesktopChatInput = memo(() => {
+  const [overlay, setOverlay] = useState<HTMLDivElement | null>(null);
   const [slashMenuRef, expand] = useChatInputStore((s) => [s.slashMenuRef, s.expand]);
   const leftActions = useChatInputStore((s) => s.leftActions);
 
   const fileNode = leftActions.flat().includes('fileUpload') && <FilePreview />;
 
   return (
-    <>
+    <VoiceOverlayContext value={overlay}>
       {!expand && fileNode}
       <Flexbox
         className={stylex.props(expand && styles.fullscreen).className}
@@ -49,6 +52,7 @@ const DesktopChatInput = memo(() => {
         paddingBlock={'0 12px'}
         paddingInline={12}
       >
+        <div className={stylex.props(styles.voiceRow).className} ref={setOverlay} />
         <ChatInput
           fullscreen={expand}
           slashMenuRef={slashMenuRef}
@@ -91,7 +95,7 @@ const DesktopChatInput = memo(() => {
           <InputEditor defaultRows={1} />
         </ChatInput>
       </Flexbox>
-    </>
+    </VoiceOverlayContext>
   );
 });
 
