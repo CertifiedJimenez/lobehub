@@ -117,6 +117,10 @@ exports[`settingsSelectors > currentSystemAgent > should merge DEFAULT_SYSTEM_AG
     "model": "gpt-5.6-luna",
     "provider": "openai",
   },
+  "tts": {
+    "model": "",
+    "provider": "",
+  },
   "userMemoryEmbedding": {
     "model": "text-embedding-3-small",
     "provider": "openai",

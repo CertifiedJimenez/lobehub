@@ -6,10 +6,11 @@ import { aiProviderSelectors, useAiInfraStore } from '@/store/aiInfra';
 
 import { decisionModelProviders } from '../decisionModelProviders';
 import { type ModelRef } from '../serviceModelState';
+import { speechModelProviders } from '../speechModelProviders';
 import ModelLabel from './ModelLabel';
 
 /** `vision` is the chat models that can read images. */
-export type ModelKind = 'asr' | 'chat' | 'decision' | 'embedding' | 'vision';
+export type ModelKind = 'asr' | 'chat' | 'decision' | 'embedding' | 'tts' | 'vision';
 
 // lobe-design-ignore DETAIL-NO-EMPTY: with no enabled model the picker still offers its follow item, so the list is never empty
 export const toOptionValue = ({ model, provider }: ModelRef) => `${provider}/${model}`;
@@ -35,7 +36,9 @@ export const useModelOptions = (kind: ModelKind) => {
     const candidates =
       kind === 'decision'
         ? decisionModelProviders(decisionModels ?? [], enabledProviders ?? [], runtimeConfig)
-        : providers;
+        : kind === 'tts'
+          ? speechModelProviders(decisionModels ?? [], enabledProviders ?? [])
+          : providers;
     const withModels = candidates
       .map((provider) =>
         kind === 'vision'
@@ -74,15 +77,18 @@ export const useModelName = () => {
   const embedding = useAiInfraStore(aiProviderSelectors.enabledEmbeddingModelList);
   const asr = useAiInfraStore(aiProviderSelectors.enabledAsrModelList);
   const builtin = useAiInfraStore((s) => s.builtinAiModelList);
+  const enabledModels = useAiInfraStore((s) => s.enabledAiModels);
 
   const names = useMemo(() => {
     const map = new Map<string, string>();
     for (const model of builtin) if (model.displayName) map.set(model.id, model.displayName);
+    for (const model of enabledModels ?? [])
+      if (model.type === 'tts' && model.displayName) map.set(model.id, model.displayName);
     for (const provider of [...(chat || []), ...embedding, ...asr])
       for (const model of provider.children)
         if (model.displayName) map.set(model.id, model.displayName);
     return map;
-  }, [asr, builtin, chat, embedding]);
+  }, [asr, builtin, chat, embedding, enabledModels]);
 
   return useCallback((ref?: ModelRef) => (ref ? names.get(ref.model) || ref.model : ''), [names]);
 };

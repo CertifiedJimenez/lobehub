@@ -1,7 +1,7 @@
 import type * as BusinessDefaults from '@lobechat/business-const';
 import { describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_SYSTEM_AGENT_CONFIG } from './systemAgent';
+import { DEFAULT_SYSTEM_AGENT_CONFIG, SERVICE_MODEL_TIER_SLOTS } from './systemAgent';
 
 vi.mock('@lobechat/business-const', async (importOriginal) => ({
   ...(await importOriginal<typeof BusinessDefaults>()),
@@ -10,6 +10,10 @@ vi.mock('@lobechat/business-const', async (importOriginal) => ({
 }));
 
 describe('channel decision defaults with an older distribution overlay', () => {
+  it('leaves speech output unconfigured and independent of chat model tiers', () => {
+    expect(DEFAULT_SYSTEM_AGENT_CONFIG.tts).toEqual({ model: '', provider: '' });
+    expect(Object.values(SERVICE_MODEL_TIER_SLOTS).flat()).not.toContain('tts');
+  });
   it('retains the enabled self-hosted fallback when the overlay has no decision defaults', () => {
     expect(DEFAULT_SYSTEM_AGENT_CONFIG.channelRouting).toEqual({
       enabled: true,

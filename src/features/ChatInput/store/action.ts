@@ -29,6 +29,7 @@ export interface Action {
   handleStop: () => void;
   pauseInputCompletion: (error: State['inputCompletionError']) => void;
   setActiveAudioInputMode: (mode?: State['activeAudioInputMode']) => void;
+  setConversationActive: (active: boolean) => void;
   setDocument: (type: string, content: any, options?: Record<string, unknown>) => void;
   setExpand: (expend: boolean) => void;
   setJSONState: (content: any) => void;
@@ -194,6 +195,10 @@ export const store: CreateStore = (publicState) => (set, get) => ({
 
   pauseInputCompletion: (inputCompletionError) => {
     set({ inputCompletionError, inputCompletionErrorDismissed: false });
+  },
+
+  setConversationActive: (conversationActive) => {
+    set({ conversationActive });
   },
 
   setActiveAudioInputMode: (activeAudioInputMode) => {

@@ -70,15 +70,15 @@ const TIERS: { key: ServiceModelTier; modelKind: ModelKind; rows: RowKey[] }[] =
   { key: 'embedding', modelKind: 'embedding', rows: SERVICE_MODEL_TIER_SLOTS.embedding },
 ] as { key: ServiceModelTier; modelKind: ModelKind; rows: RowKey[] }[];
 
-/** Speech-to-text follows no tier; it is its own row after the tiers. */
-const ASR_ROW = 'asr' satisfies RowKey;
+/** Speech models follow no tier and share the Voice card. */
+const SPEECH_ROWS = ['asr', 'tts'] as const satisfies readonly RowKey[];
 
 /** A settings card: one per tier, plus voice. */
 type Section = ServiceModelTier | 'channelRouting' | 'voice';
 
 const sectionOf = (row: RowKey | UserServiceModelConfigKey): Section => {
   if (row === DEFAULT_AGENT_ROW) return 'main';
-  if (row === ASR_ROW) return 'voice';
+  if (row === 'asr' || row === 'tts') return 'voice';
   if (row === 'channelRouting') return 'channelRouting';
   return tierOfSlot(row) ?? 'main';
 };
@@ -213,7 +213,8 @@ const ServiceModelForm = ({ hidePersonalPreferences }: ServiceModelFormProps) =>
   };
 
   const followLabelOf = (row: RowKey) => {
-    if (row === DEFAULT_AGENT_ROW || row === ASR_ROW) return t('serviceModel.systemRecommended');
+    if (row === DEFAULT_AGENT_ROW || row === 'asr' || row === 'tts')
+      return t('serviceModel.systemRecommended');
     const tier = TIERS.find(({ key }) => SERVICE_MODEL_TIER_SLOTS[key].includes(row));
     return tier ? t(`serviceModel.tier.${tier.key}.title`) : t('serviceModel.systemRecommended');
   };
@@ -431,24 +432,29 @@ const ServiceModelForm = ({ hidePersonalPreferences }: ServiceModelFormProps) =>
     }),
     {
       children: (
-        <Form.Field
-          label={
-            <SettingsSearchAnchor id={`service-model-${ASR_ROW}`}>
-              {t(`systemAgent.${ASR_ROW}.title`)}
-            </SettingsSearchAnchor>
-          }
-        >
-          <SlotRow
-            canDisable
-            disabled={!canManage}
-            followLabel={followLabelOf(ASR_ROW)}
-            followModel={followModelOf(ASR_ROW)}
-            modelKind={'asr'}
-            state={rowState(ASR_ROW)}
-            title={t(`systemAgent.${ASR_ROW}.title`)}
-            onChange={(choice) => writeSlot(ASR_ROW, choice)}
-          />
-        </Form.Field>
+        <>
+          {SPEECH_ROWS.map((row) => (
+            <Form.Field
+              key={row}
+              label={
+                <SettingsSearchAnchor id={`service-model-${row}`}>
+                  {t(`systemAgent.${row}.title`)}
+                </SettingsSearchAnchor>
+              }
+            >
+              <SlotRow
+                canDisable
+                disabled={!canManage}
+                followLabel={followLabelOf(row)}
+                followModel={followModelOf(row)}
+                modelKind={row}
+                state={rowState(row)}
+                title={t(`systemAgent.${row}.title`)}
+                onChange={(choice) => writeSlot(row, choice)}
+              />
+            </Form.Field>
+          ))}
+        </>
       ),
       collapsible: false,
       desc: withReason(t('serviceModel.voice.desc')),

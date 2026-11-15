@@ -4,7 +4,8 @@ const LiveKit: ModelProviderCard = {
   apiKeyUrl: 'https://cloud.livekit.io',
   chatModels: [],
   checkModel: 'google/gemma-4-31b-it',
-  description: 'LiveKit Inference provides language models through one LiveKit Cloud project.',
+  description:
+    'LiveKit Inference provides language, speech recognition, and speech synthesis models through one LiveKit Cloud project.',
   id: 'livekit',
   modelsUrl: 'https://docs.livekit.io/agents/models/inference/',
   name: 'LiveKit',

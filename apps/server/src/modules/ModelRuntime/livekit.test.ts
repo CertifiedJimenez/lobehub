@@ -3,7 +3,11 @@ import { LobeLiveKitAI } from '@lobechat/model-runtime';
 import { ModelProvider } from 'model-bank';
 import { expect, it, vi } from 'vitest';
 
-import { buildPayloadFromKeyVaults, initModelRuntimeWithUserPayload } from './index';
+import {
+  buildPayloadFromKeyVaults,
+  getParamsFromPayload,
+  initModelRuntimeWithUserPayload,
+} from './index';
 
 vi.mock('@/server/globalConfig', () => ({ getServerAiProviderConfig: vi.fn() }));
 vi.mock('@/envs/llm', () => ({
@@ -28,21 +32,26 @@ it('forwards both encrypted vault fields into the builtin runtime', () => {
   ).toBeInstanceOf(LobeLiveKitAI);
 });
 
-it('uses the deployment pair only when no user credentials are supplied', () => {
-  expect(() => initModelRuntimeWithUserPayload(ModelProvider.LiveKit, {})).not.toThrow();
+it('uses the inference-specific deployment pair only when no user credentials are supplied', () => {
+  expect(getParamsFromPayload(ModelProvider.LiveKit, {})).toMatchObject({
+    apiKey: 'server-key',
+    apiSecret: 'server-secret',
+  });
+  expect(getParamsFromPayload(ModelProvider.LiveKit, { apiKey: 'user-key' })).toMatchObject({
+    apiKey: 'user-key',
+    apiSecret: undefined,
+  });
   expect(() =>
     initModelRuntimeWithUserPayload(ModelProvider.LiveKit, { apiKey: 'user-key' }),
-  ).toThrow();
-  expect(() =>
-    initModelRuntimeWithUserPayload(ModelProvider.LiveKit, { apiSecret: 'user-secret' }),
   ).toThrow();
 });
 
 it('does not expose deployment credentials to a custom runtime or endpoint', () => {
-  expect(() =>
-    initModelRuntimeWithUserPayload('custom-livekit', { runtimeProvider: 'livekit' }),
-  ).toThrow();
-  expect(() =>
-    initModelRuntimeWithUserPayload(ModelProvider.LiveKit, { baseURL: 'https://other.example/v1' }),
-  ).toThrow();
+  expect(getParamsFromPayload('custom-livekit', { runtimeProvider: 'livekit' })).toMatchObject({
+    apiKey: undefined,
+    apiSecret: undefined,
+  });
+  expect(
+    getParamsFromPayload(ModelProvider.LiveKit, { baseURL: 'https://other.example/v1' }),
+  ).toMatchObject({ apiKey: undefined, apiSecret: undefined });
 });

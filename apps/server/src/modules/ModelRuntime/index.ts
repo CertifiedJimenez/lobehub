@@ -8,6 +8,7 @@ import {
   ModelRuntime,
   type ModelRuntimeHooks,
   setInlineImageNormalizer,
+  setLiveKitAudioDecoder,
 } from '@lobechat/model-runtime';
 import { isResponsesAPIModel } from '@lobechat/model-runtime/providers/openai/modelId';
 import { LobeVertexAI } from '@lobechat/model-runtime/vertexai';
@@ -44,9 +45,11 @@ import { ensureFreshOAuthToken } from '@/server/services/oauthDeviceFlow/refresh
 import { KeyVaultsGateKeeper } from '../KeyVaultsEncrypt';
 import apiKeyManager from './apiKeyManager';
 import { sharpInlineImageNormalizer } from './inlineImageNormalizer';
+import { decodeLiveKitAudio } from './livekitAudioDecoder';
 
 // Server requests can re-encode oversized images instead of dropping them.
 setInlineImageNormalizer(sharpInlineImageNormalizer);
+setLiveKitAudioDecoder(decodeLiveKitAudio);
 
 export * from './trace';
 export type { ServerDefaultHeterogeneousAgentType } from '@lobechat/heterogeneous-agents';
@@ -237,7 +240,7 @@ const canUseServerProviderConfig = (provider: string, payload: ClientSecretPaylo
  * @param payload - The JWT payload.
  * @returns The options object.
  */
-const getParamsFromPayload = (provider: string, payload: ClientSecretPayload) => {
+export const getParamsFromPayload = (provider: string, payload: ClientSecretPayload) => {
   const useServerConfig = canUseServerProviderConfig(provider, payload);
   const llmConfig = (useServerConfig ? getLLMConfig() : {}) as Record<string, any>;
   const runtimeProvider = payload.runtimeProvider ?? provider;

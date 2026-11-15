@@ -1,4 +1,47 @@
 export default {
+  'conversation.ttsBackend': 'Speech output service',
+  'conversation.ttsBackendDescription':
+    'Use LiveKit Inference or a LobeHub provider, including a self-hosted speech server.',
+  'conversation.speechBackend': 'Speech recognition service',
+  'conversation.speechBackendDescription':
+    'Choose LiveKit Inference or your LobeHub speech recognition provider. Your selected agent handles reasoning.',
+  'conversation.backendLobehub': 'LobeHub providers',
+  'conversation.backendLivekit': 'LiveKit Cloud Inference',
+  'conversation.inferenceStt': 'LiveKit recognition model',
+  'conversation.inferenceTts': 'LiveKit speech output model',
+  'conversation.inferenceVoiceHelp': 'Browse supported models and voice IDs',
+  'tab.conversation': 'Conversation',
+  'conversation.title': 'Conversation',
+  'conversation.description':
+    'Voice and video conversations use your current LobeHub agent, model, tools, and history. Configure your personal LiveKit connection here.',
+  'conversation.connection': 'LiveKit connection',
+  'conversation.url': 'Server URL',
+  'conversation.apiKey': 'API key',
+  'conversation.apiSecret': 'API secret',
+  'conversation.save': 'Save',
+  'conversation.test': 'Save and test connection',
+  'conversation.saved': 'Saved',
+  'conversation.connected': 'Connection verified',
+  'conversation.error':
+    'Could not save or connect. Check the server URL, credentials, and worker configuration.',
+  'conversation.preferences': 'Conversation preferences',
+  'conversation.enabled': 'Enable conversations',
+  'conversation.mode': 'Mode',
+  'conversation.voiceMode': 'Voice',
+  'conversation.videoMode': 'Voice and video',
+  'conversation.tts': 'Speech output model',
+  'conversation.voice': 'Voice',
+  'conversation.language': 'Recognition language',
+  'conversation.silence': 'Pause before responding (ms)',
+  'conversation.speechInput': 'Speech recognition',
+  'conversation.speechInputDescription':
+    'Uses your speech recognition model in Service Model settings. Speech providers use your existing provider credentials.',
+  'conversation.worker':
+    'A LobeHub LiveKit worker must be running on the same LiveKit server. Testing checks the server credentials; starting a conversation also requires the worker.',
+  'conversation.videoDescription':
+    'Video mode shares a camera or screen frame with each spoken turn when the current model supports images. Frames are saved in the conversation.',
+  'conversation.modelPlaceholder': 'Choose an enabled speech model',
+  'conversation.configureModels': 'Configure providers and models',
   'systemAgent.channelRouting.title': 'Channel decision model',
   'systemAgent.channelRouting.modelDesc':
     'Choose which Agents reply to messages without @mentions. When off, all eligible Agents reply.',
@@ -1823,8 +1866,7 @@ export default {
   'serviceModel.tier.verify.desc':
     'Task and goal acceptance. It reads screenshot evidence, so only vision models are listed',
   'serviceModel.tier.verify.title': 'Acceptance Model',
-  'serviceModel.voice.desc':
-    'Turns voice messages into text for external agents that only accept text',
+  'serviceModel.voice.desc': 'Choose models for voice message transcription and speech output',
   'serviceModel.voice.title': 'Voice',
   'serviceModel.topicAutoSummary.desc':
     'Summarizes topics created in the rolling 24-hour window after one hour without message activity.',
@@ -2078,6 +2120,10 @@ When I am ___, I need ___
     'Transcribes voice messages to Claude Code and other external agents, which only accept text. Voice input for those agents stays hidden while no model is set or its provider is not enabled.',
   'systemAgent.asr.placeholder': 'Select a speech-to-text model',
   'systemAgent.asr.title': 'Voice Message Transcription',
+  'systemAgent.tts.modelDesc':
+    'Converts agent replies into speech. Speech output stays off until a model is configured.',
+  'systemAgent.tts.placeholder': 'Select a text-to-speech model',
+  'systemAgent.tts.title': 'Speech Output',
   'systemAgent.expertise.modelDesc':
     'Model used to draft expertise domains and extract reusable experience from conversations.',
   'systemAgent.expertise.title': 'Agent Self-Evolution',

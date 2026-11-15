@@ -116,6 +116,7 @@ export interface PublicState {
 
 export interface State extends PublicState {
   _savedEditorState?: Record<string, any>;
+  conversationActive: boolean;
   editor?: IEditor;
   inputCompletionError?: InputCompletionError;
   inputCompletionErrorDismissed: boolean;
@@ -133,6 +134,7 @@ export const initialState: State = {
   feature: DEFAULT_CHAT_INPUT_FEATURE,
   inputCompletionErrorDismissed: false,
   installingMarketMentions: false,
+  conversationActive: false,
   isContentEmpty: false,
   leftActions: [],
   markdownContent: '',

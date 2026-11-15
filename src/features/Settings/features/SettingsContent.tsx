@@ -12,17 +12,10 @@ import { serverConfigSelectors, useServerConfigStore } from '@/store/serverConfi
 
 import { ManageMemoryButton } from '../memory/features/ManageMemoryButton';
 import { componentMap } from './componentMap';
+import { LEGACY_SETTINGS_TAB_REDIRECTS } from './legacyTabRedirects';
 import { getSettingsContainerMaxWidth, OWN_FRAME_TABS } from './ownFrameTabs';
 import { SettingsPageActionsContext, SettingsPageActionsRow } from './SettingsPageActions';
 import { useSettingsTabTitle } from './tabTitles';
-
-const REDIRECT_MAP: Record<string, string> = {
-  [SettingsTabs.Common]: SettingsTabs.Appearance,
-  [SettingsTabs.ChatAppearance]: SettingsTabs.Appearance,
-  [SettingsTabs.Agent]: SettingsTabs.ServiceModel,
-  [SettingsTabs.TTS]: SettingsTabs.ServiceModel,
-  [SettingsTabs.Image]: SettingsTabs.ServiceModel,
-};
 
 interface SettingsContentProps {
   activeTab?: string;
@@ -38,11 +31,14 @@ const SettingsContent = ({ mobile, activeTab }: SettingsContentProps) => {
   useSettingsAnchorScroll();
 
   useEffect(() => {
-    if (activeTab && REDIRECT_MAP[activeTab]) {
+    if (activeTab && LEGACY_SETTINGS_TAB_REDIRECTS[activeTab]) {
       // Personal-only redirect: legacy URL aliases (common, agent, tts, image,
       // chat-appearance) map to personal-settings tabs. `escape: true` keeps the
       // user in personal context even when a workspace happens to be active.
-      navigate(`/settings/${REDIRECT_MAP[activeTab]}`, { escape: true, replace: true });
+      navigate(`/settings/${LEGACY_SETTINGS_TAB_REDIRECTS[activeTab]}`, {
+        escape: true,
+        replace: true,
+      });
     }
   }, [activeTab, navigate]);
 
@@ -77,7 +73,7 @@ const SettingsContent = ({ mobile, activeTab }: SettingsContentProps) => {
     return <Component {...componentProps} />;
   };
 
-  if (activeTab && REDIRECT_MAP[activeTab]) return null;
+  if (activeTab && LEGACY_SETTINGS_TAB_REDIRECTS[activeTab]) return null;
 
   if (mobile) {
     return activeTab ? renderComponent(activeTab) : renderComponent(SettingsTabs.Profile);

@@ -36,6 +36,7 @@ import { dynamicElement, dynamicLayout, redirectElement } from '@/utils/router';
  * and reused by the mobile router (`mobileAgentRoutes.tsx`).
  */
 export const agentPageChildren: RouteObject[] = [
+  { element: redirectElement('/settings/service-model'), path: 'talk' },
   {
     children: [
       {

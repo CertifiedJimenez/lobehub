@@ -15,6 +15,32 @@ const FLASH = { model: 'flash-x', provider: 'acme' };
 const OTHER = { model: 'other-y', provider: 'acme' };
 
 describe('resolveSlotState', () => {
+  it('keeps speech output off until configured and independent of the chat tiers', () => {
+    expect(defaults.tts).toEqual({ model: '', provider: '' });
+    expect(canDisableSlot('tts')).toBe(true);
+    expect(resolveSlotState({}, defaults, 'tts').kind).toBe('off');
+
+    const selected = applySlotChoice({}, 'tts', { kind: 'custom', value: OTHER });
+    expect(resolveSlotState(selected, defaults, 'tts')).toEqual({ kind: 'custom', value: OTHER });
+    expect(applyTierChoice(selected, 'flash', FLASH).tts).toEqual(OTHER);
+
+    const disabled = applySlotChoice(selected, 'tts', { kind: 'off' });
+    expect(disabled.tts).toEqual({ model: '', provider: '' });
+    expect(resolveSlotState(disabled, defaults, 'tts').kind).toBe('off');
+    expect(applySlotChoice(selected, 'tts', { kind: 'follow' }).tts).toBeUndefined();
+  });
+
+  it('follows a deployment speech recommendation but lets users disable it', () => {
+    const speechDefaults = { ...defaults, tts: OTHER };
+    expect(resolveSlotState({}, speechDefaults, 'tts')).toEqual({
+      kind: 'follow',
+      tier: undefined,
+      value: OTHER,
+    });
+    const disabled = applySlotChoice({}, 'tts', { kind: 'off' });
+    expect(resolveSlotState(disabled, speechDefaults, 'tts').kind).toBe('off');
+  });
+
   it('follows the system recommendation when nothing is stored', () => {
     expect(resolveSlotState({}, defaults, 'topic')).toEqual({
       kind: 'follow',
